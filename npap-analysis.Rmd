@@ -1,0 +1,61 @@
+---
+title: "NPAP Analysis"
+author: "Andrew Qin"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+### Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r load-packages, message = FALSE}
+library(tidyverse)
+library(knitr)
+library(rvest)
+library(lubridate)
+```
+
+```{r load-data, message = FALSE}
+ct_offenses <- read_csv("data/srs_offenses.csv")
+```
+
+### Wrangling
+
+```{r change-na}
+ct_offenses[is.na(ct_offenses)] = 0 #Convert all NA values to 0
+```
+
+```{r create-date}
+ct_offenses <- ct_offenses %>% 
+  mutate(date = paste0(month, "-01-", year)) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(season = case_when(
+    month == 1 | month == 2 | month == 12 ~ "Winter", 
+    month >= 3 & month <=5 ~ "Spring", 
+    month >= 6 & month < 9 ~ "Summer", 
+    month >= 9 & month < 12 ~ "Fall"
+  ))
+```
+
+
+```{r create-totals}
+totals <- ct_offenses %>% 
+  filter(offense == "Grand Total") %>% 
+  mutate(clearance_rate = (cleared / number))
+```
+
+
+
+### Exploratory Data Analysis
+
+```{r line-graph}
+ggplot(totals, aes(x = date, y = number)) + 
+  geom_line(bins = 04) + 
+  geom_point(aes(color = totals$season)) 
+```
+
+
+
