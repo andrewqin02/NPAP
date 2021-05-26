@@ -20,6 +20,7 @@ library(lubridate)
 
 ```{r load-data, message = FALSE}
 ct_offenses <- read_csv("data/srs_offenses.csv")
+co_offenses <- read_csv("data/crime.csv")
 ```
 
 ### Wrangling
@@ -49,13 +50,54 @@ totals <- ct_offenses %>%
 
 
 
-### Exploratory Data Analysis
+### Exploratory Data Analysis (CT Crimes)
 
-```{r line-graph}
-ggplot(totals, aes(x = date, y = number)) + 
-  geom_line(bins = 04) + 
-  geom_point(aes(color = totals$season)) 
+HB 6004 was passed on July 31, 2020, but the bill text only takes effect for incidents that arise after July 1, 2021 (Section 41). Thus, we cannot determine if the effects of real limitations on qualified immunity include increased crime rates. We can only ascertain whether the mere passage of the bill coincided with increases in crime.
+
+```{r line-graph-2020}
+
+totals %>% 
+  filter(year == 2020) %>% 
+  ggplot(aes(x = date, y = number)) + 
+  geom_line() + 
+  geom_point() + 
+  labs(title = "2020 Crime Incident Trends in CT", 
+       x = "Date", 
+       y = "Total Recorded SRS Offenses") + 
+  theme(legend.position = "none") + 
+  geom_vline(xintercept = as.Date("2020-07-16"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
 ```
+
+Based on this line graph, it appears that the passage of HB 6004 coincided with a moderate increase in crimes from July to August. However, the increase soon tapered off from August to December. We expanded the data to include 5 years from 2015 to 2020 to determine if the increase from July to August reflected a coincidental seasonal increase.
+
+```{r line-graph-by-year}
+ggplot(totals, aes(x = date, y = number, color = factor(year))) + 
+  geom_line() + 
+  geom_point() + 
+  labs(title = "Crime Incident Trends by Year in CT", 
+       x = "Date", 
+       y = "Total Recorded SRS Offenses") + 
+  theme(legend.position = "none") + 
+  geom_vline(xintercept = as.Date("2020-07-15"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+Based on this 5-year graph of offenses, 2020 appears to follow a relatively normal seasonal pattern of increase in crimes during the summer. Especially during the months of May, June, and July, crime offenses tend to increase. Reported offenses sometimes increase more in August and sometimes decrease. The only question is whether the expected increase in SRS reported offenses from July to August is significantly exceeded in 2020.
+
+```{r line-graph2}
+ggplot(totals, aes(x = date, y = clearance_rate, color = factor(year))) + 
+  geom_line() + 
+  geom_point() + 
+  labs(title = "Clearance Rate Trends by Year in CT", 
+       x = "Date", 
+       y = "Clearance Rate") + 
+  theme(legend.position = "none")
+```
+
+### Exploratory Data Analysis (CO Crimes)
+
+Colorado's qualified immunity bill was passed on June 19, 2020, and Section 3 came into effect immediately upon passage. 
 
 
 
