@@ -25,12 +25,10 @@ co_offenses <- read_csv("data/crime.csv")
 
 ### Wrangling
 
-```{r change-na}
+```{r ct-wrangling}
 ct_offenses[is.na(ct_offenses)] = 0 #Convert all NA values to 0
-```
 
-```{r create-date}
-ct_offenses <- ct_offenses %>% 
+ct_offenses <- ct_offenses %>%  # Mutate new variables and create date
   mutate(date = paste0(month, "-01-", year)) %>% 
   mutate(date = mdy(date)) %>% 
   mutate(season = case_when(
@@ -39,13 +37,28 @@ ct_offenses <- ct_offenses %>%
     month >= 6 & month < 9 ~ "Summer", 
     month >= 9 & month < 12 ~ "Fall"
   ))
+
+totals <- ct_offenses %>%  # create totals
+  filter(offense == "Grand Total") %>% 
+  mutate(clearance_rate = (cleared / number))
 ```
 
 
-```{r create-totals}
-totals <- ct_offenses %>% 
-  filter(offense == "Grand Total") %>% 
-  mutate(clearance_rate = (cleared / number))
+```{r add-dates}
+dates <- str_split(co_offenses$FIRST_OCCURRENCE_DATE, " ", simplify = TRUE)
+dates <- dates[,1]
+year <- str_split(dates, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(date = dates, month = month, year = year)
+co_offenses <- tibble(co_offenses, dates)
+```
+
+```{r convert-date}
+co_offenses <- co_offenses %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
 ```
 
 
@@ -99,5 +112,91 @@ ggplot(totals, aes(x = date, y = clearance_rate, color = factor(year))) +
 
 Colorado's qualified immunity bill was passed on June 19, 2020, and Section 3 came into effect immediately upon passage. 
 
+```{r}
+daily_totals <- co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  count(date)
 
+monthly_totals <- co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  count(my)
+
+co_totals %>% 
+  filter(date >= as.Date("2020-01-01") & date < as.Date("2021-01-01")) %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point() + 
+  labs(title = "2020 Crime Incident Trends in Denver", 
+       x = "Date", 
+       y = "Number of Non-Traffic Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  ylim(100, 275) +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+```{r}
+co_totals %>% 
+  filter(date >= as.Date("2019-01-01") & date < as.Date("2020-01-01")) %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point() + 
+  labs(title = "2019 Crime Incident Trends in Denver", 
+       x = "Date", 
+       y = "Number of Non-Traffic Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2019-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+```{r}
+co_totals %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  ylim(150, 300) +
+  labs(title = "Daily Crime Incident Trends in Denver for 5 Years", 
+       x = "Date", 
+       y = "Number of Non-Traffic Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+```{r}
+monthly_totals %>% 
+  filter(my < as.Date("2021/05/01")) %>% 
+  ggplot(aes(x = my, y = n)) +
+  geom_point() + 
+  geom_line() + 
+  labs(title = "Monthly Crime Incident Trends in Denver for 5 Years", 
+       x = "Date", 
+       y = "Number of Non-Traffic Crimes") + 
+  theme(legend.position = "none") +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+### Analysis (CO Crimes)
+
+```{r co-summary-stats}
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2016-06-19") & date < as.Date("2017-05-21")) %>% 
+  nrow()
+```
+
+```{r co-summary-stats}
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2017-06-19") & date < as.Date("2018-05-21")) %>% 
+  nrow()
+```
+
+```{r co-summary-stats2}
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2020-06-19")) %>% 
+  nrow()
+```
 
