@@ -179,24 +179,45 @@ monthly_totals %>%
 
 ### Analysis (CO Crimes)
 
-```{r co-summary-stats}
-co_offenses %>% 
-  filter(IS_CRIME == 1) %>% 
-  filter(date >= as.Date("2016-06-19") & date < as.Date("2017-05-21")) %>% 
-  nrow()
-```
+I considered several different analysis techniques to gain some insight into whether the adoption of qualified immunity coincided with increases in crime, but I concluded that most analysis techniques need more data (for instance, one analysis technique would be to construct a model where the changes in months could account for seasonal crime changes, but each month coefficient would only have a sample of 5 to generate conclusions from, not nearly large enough to make a good model). Since we are using census level data, I calculated the total number of non-traffic crimes (vehicular assault included) since qualified immunity was passed until May 21 and then compared that figure to a similar time period with the same number of days from the previous year (2019-20).
 
-```{r co-summary-stats}
-co_offenses %>% 
-  filter(IS_CRIME == 1) %>% 
-  filter(date >= as.Date("2017-06-19") & date < as.Date("2018-05-21")) %>% 
-  nrow()
-```
 
-```{r co-summary-stats2}
+```{r co-2020-2021-crimes}
 co_offenses %>% 
   filter(IS_CRIME == 1) %>% 
   filter(date >= as.Date("2020-06-19")) %>% 
-  nrow()
+  nrow() #337 day time period
 ```
 
+```{r co-summary-stats}
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-21")) %>% 
+  nrow() #Slightly different time interval to compensate for the leap day. Placed an extra day in the summer which slightly skews the number of crimes to be seasonally greater.
+```
+
+Based on the 9-month time interval, it appears that qualified immunity did coincide with an increase in crimes. In particular, from the day that qualified immunity has passed until May 21, the total number of non-traffic offenses was 6773 offenses greater than the total number of non-traffic offenses from the similar time interval between 2019 and 2020.
+
+```{r co-summary-stats}
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-21")) %>% 
+  nrow() #2019-20
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2018-06-19") & date <= as.Date("2019-05-21")) %>% 
+  nrow() #2018-19
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2017-06-19") & date <= as.Date("2018-05-21")) %>% 
+  nrow() #2017-18
+co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  filter(date >= as.Date("2016-06-19") & date <= as.Date("2017-05-21")) %>% 
+  nrow() #2016-17
+
+```
+
+The most that crime numbers differed within one year between similar time intervals is 2142 non-traffic offenses between the June-May time intervals from 2016-17 and from 2017-18. Of course, our sample size is far too low to make any statistically sound conclusions. However, the data strongly suggests that the 6773-offense jump between the May-June time intervals before qualified immunity and after qualified immunity is irregularly large (more than 3x the last greatest crime jump in the last 5 years). Based on the data, it appears that qualified immunity coincided with an irregularly large jump in non-traffic offenses.
+
+Our analysis, however, cannot rule out a host of other lurking variables that could explain the leap in crime between the 2019-20 time interval and 2020-21 time interval. The passage of qualified immunity in Denver also coincided with George Floyd protests, decreased trust in police, and increased violence which would all contribute to increased crime figures.
