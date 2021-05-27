@@ -16,11 +16,13 @@ library(tidyverse)
 library(knitr)
 library(rvest)
 library(lubridate)
+library(readxl)
 ```
 
 ```{r load-data, message = FALSE}
 ct_offenses <- read_csv("data/srs_offenses.csv")
 co_offenses <- read_csv("data/crime.csv")
+co_shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
 
 ### Wrangling
@@ -51,16 +53,28 @@ year <- str_split(dates, "/", simplify = TRUE)
 month <- year[,1]
 year <- year[,3]
 dates <- tibble(date = dates, month = month, year = year)
-co_offenses <- tibble(co_offenses, dates)
-```
-
-```{r convert-date}
-co_offenses <- co_offenses %>% 
+co_offenses <- tibble(co_offenses, dates) %>% 
   mutate(date = mdy(date)) %>% 
   mutate(my = paste0(month, "-01-", year)) %>% 
   mutate(my = mdy(my))
 ```
 
+```{r wrangling-shootings}
+co_shootings <- co_shootings %>% 
+  filter(State == "CO") 
+names(co_shootings)[6] <- 'date'
+
+dates <- str_split(co_shootings$date, " ", simplify = TRUE)
+year <- str_split(dates, "-", simplify = TRUE)
+month <- year[,2]
+year <- year[,1]
+dates <- tibble(month = month, year = year)
+co_shootings <- tibble(co_shootings, dates) %>% 
+  mutate(date = as.Date(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+```
 
 
 ### Exploratory Data Analysis (CT Crimes)
@@ -198,6 +212,8 @@ co_offenses %>%
 
 Based on the 9-month time interval, it appears that qualified immunity did coincide with an increase in crimes. In particular, from the day that qualified immunity has passed until May 21, the total number of non-traffic offenses was 6773 offenses greater than the total number of non-traffic offenses from the similar time interval between 2019 and 2020.
 
+I compared the differences in crimes between time intervals in the past to determine if a 6773-offense difference between yearly non-traffic crime incidents was unusual.
+
 ```{r co-summary-stats}
 co_offenses %>% 
   filter(IS_CRIME == 1) %>% 
@@ -218,6 +234,75 @@ co_offenses %>%
 
 ```
 
-The most that crime numbers differed within one year between similar time intervals is 2142 non-traffic offenses between the June-May time intervals from 2016-17 and from 2017-18. Of course, our sample size is far too low to make any statistically sound conclusions. However, the data strongly suggests that the 6773-offense jump between the May-June time intervals before qualified immunity and after qualified immunity is irregularly large (more than 3x the last greatest crime jump in the last 5 years). Based on the data, it appears that qualified immunity coincided with an irregularly large jump in non-traffic offenses.
+The most that crime numbers differed within one year between similar time intervals in the past is 2142 non-traffic offenses between the June-May time intervals from 2016-17 and from 2017-18. Of course, our sample size is far too low to make any statistically sound conclusions. However, the data strongly suggests that the 6773-offense jump between the May-June time intervals before qualified immunity and after qualified immunity is irregularly large (more than 3x the last greatest crime jump in the last 5 years). Based on the data, it appears that the passage of qualified immunity coincided with an irregularly large jump in non-traffic offenses.
 
 Our analysis, however, cannot rule out a host of other lurking variables that could explain the leap in crime between the 2019-20 time interval and 2020-21 time interval. The passage of qualified immunity in Denver also coincided with George Floyd protests, decreased trust in police, and increased violence which would all contribute to increased crime figures.
+
+## Civilian Shootings
+
+### CO Fatal Shootings EDA
+
+```{r}
+shootings_totals <- co_shootings %>% 
+  count(my) 
+
+df <- tibble(my = as.Date("2021-02-01"), n = 0)
+shootings_totals <- rbind(shootings_totals, df)
+```
+
+
+```{r}
+shootings_totals %>% 
+  filter(my >= as.Date("2016-01-01")) %>% 
+  ggplot(aes(x = my, y = n)) +
+  geom_point() + 
+  labs(title = "2013-2021 Monthly Fatal Police Shootings", 
+       x = "Date", 
+       y = "Number of Fatal Police Shootings") + 
+  theme(legend.position = "none") + 
+  geom_line() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+### CO Fatal Shootings Analysis
+
+```{r co-2020-2021-crimes}
+co_shootings %>% 
+  filter(date >= as.Date("2020-06-19")) %>% 
+  nrow() # a year minus one month - max goes up to May 19
+```
+
+
+```{r co-summary-stats}
+co_shootings %>% 
+  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-18")) %>% 
+  nrow() 
+```
+
+```{r co-summary-stats}
+co_shootings %>% 
+  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-19")) %>% 
+  nrow() #2019-20
+co_shootings %>% 
+  filter(date >= as.Date("2018-06-19") & date <= as.Date("2019-05-19")) %>% 
+  nrow() #2018-19
+co_shootings %>% 
+  filter(date >= as.Date("2017-06-19") & date <= as.Date("2018-05-19")) %>% 
+  nrow() #2017-18
+co_shootings %>% 
+  filter(date >= as.Date("2016-06-19") & date <= as.Date("2017-05-19")) %>% 
+  nrow() #2016-17
+co_shootings %>% 
+  filter(date >= as.Date("2015-06-19") & date < as.Date("2016-05-19")) %>% 
+  nrow()
+co_shootings %>% 
+  filter(date >= as.Date("2014-06-19") & date <= as.Date("2015-05-19")) %>% 
+  nrow()
+co_shootings %>% 
+  filter(date >= as.Date("2013-06-19") & date <= as.Date("2014-05-19")) %>% 
+  nrow()
+
+```
+
+Based on these summary statistics, it does appear that qualified immunity coincided with a significant decrease in fatal police shootings. In particular, fatal police shootings decreased by 12 shootings from the June 2019 to May 2020 time period (44) compared to the June 2020 to May 2021 time period (32). When compared to the past 3 years (starting from the 2017-18 time period to now), the number of fatal police shootings had been relatively consistent at around 43-44; the number only dropped in the most recent time interval. However, when analyzing the past 7-8 years, the number of fatal police shootings have reached the lows of 18 in the past, indicating that a number as low as 32 fatal police shootings may not be particularly unusual.
