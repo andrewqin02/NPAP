@@ -22,7 +22,8 @@ library(readxl)
 ```{r load-data, message = FALSE}
 ct_offenses <- read_csv("data/srs_offenses.csv")
 co_offenses <- read_csv("data/crime.csv")
-co_shootings <- read_excel("data/MPVDatasetDownload.xlsx")
+wa_offenses <- read_csv("data/SPD_Crime_Data__2008-Present.csv")
+shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
 
 ### Wrangling
@@ -59,22 +60,39 @@ co_offenses <- tibble(co_offenses, dates) %>%
   mutate(my = mdy(my))
 ```
 
-```{r wrangling-shootings}
-co_shootings <- co_shootings %>% 
-  filter(State == "CO") 
-names(co_shootings)[6] <- 'date'
+```{r add-date-wa}
+names(wa_offenses)[3] <- 'date'
+wa_offenses$date <- str_split(wa_offenses$date, " ", simplify = TRUE)[,1] # Get rid of time
 
-dates <- str_split(co_shootings$date, " ", simplify = TRUE)
+dates <- str_split(wa_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+wa_offenses <- tibble(wa_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+```
+
+
+```{r wrangling-shootings}
+names(shootings)[6] <- 'date'
+
+dates <- str_split(shootings$date, " ", simplify = TRUE)
 year <- str_split(dates, "-", simplify = TRUE)
 month <- year[,2]
 year <- year[,1]
 dates <- tibble(month = month, year = year)
-co_shootings <- tibble(co_shootings, dates) %>% 
+co_shootings <- tibble(shootings, dates) %>% 
   mutate(date = as.Date(date)) %>% 
   mutate(my = paste0(month, "-01-", year)) %>% 
   mutate(my = mdy(my))
 
+co_shootings <- shootings 
+
 ```
+
+
 
 
 ### Exploratory Data Analysis (CT Crimes)
@@ -133,9 +151,10 @@ daily_totals <- co_offenses %>%
 
 monthly_totals <- co_offenses %>% 
   filter(IS_CRIME == 1) %>% 
+  mutate(my = as.Date(my)) %>% 
   count(my)
 
-co_totals %>% 
+daily_totals %>% 
   filter(date >= as.Date("2020-01-01") & date < as.Date("2021-01-01")) %>% 
   ggplot(aes(x = date, y = n)) +
   geom_point() + 
@@ -150,7 +169,7 @@ co_totals %>%
 ```
 
 ```{r}
-co_totals %>% 
+daily_totals %>% 
   filter(date >= as.Date("2019-01-01") & date < as.Date("2020-01-01")) %>% 
   ggplot(aes(x = date, y = n)) +
   geom_point() + 
@@ -164,7 +183,7 @@ co_totals %>%
 ```
 
 ```{r}
-co_totals %>% 
+daily_totals %>% 
   ggplot(aes(x = date, y = n)) +
   geom_point(alpha = 0.5) + 
   ylim(150, 300) +
