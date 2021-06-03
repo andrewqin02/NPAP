@@ -16,7 +16,9 @@ library(tidyverse)
 library(knitr)
 library(rvest)
 library(lubridate)
+library(infer)
 library(readxl)
+set.seed(460)
 ```
 
 ```{r load-data, message = FALSE}
@@ -62,6 +64,12 @@ co_offenses <- tibble(co_offenses, dates) %>%
 
 ```{r add-date-wa}
 names(wa_offenses)[3] <- 'date'
+names(wa_offenses)[7] <- 'crime_against'
+names(wa_offenses)[8] <- 'offense_parent_group'
+names(wa_offenses)[9] <- 'offense'
+names(wa_offenses)[10] <- 'offense_code'
+names(wa_offenses)[6] <- 'group_a_b'
+
 wa_offenses$date <- str_split(wa_offenses$date, " ", simplify = TRUE)[,1] # Get rid of time
 
 dates <- str_split(wa_offenses$date, "/", simplify = TRUE)
@@ -91,7 +99,6 @@ co_shootings <- tibble(shootings, dates) %>%
 co_shootings <- shootings 
 
 ```
-
 
 
 
@@ -140,9 +147,10 @@ ggplot(totals, aes(x = date, y = clearance_rate, color = factor(year))) +
   theme(legend.position = "none")
 ```
 
-### Exploratory Data Analysis (CO Crimes)
+### Exploratory Data Analysis (Total CO Crimes)
 
 Colorado's qualified immunity bill was passed on June 19, 2020, and Section 3 came into effect immediately upon passage. 
+
 
 ```{r}
 daily_totals <- co_offenses %>% 
@@ -210,6 +218,124 @@ monthly_totals %>%
              color = "red", alpha = 0.5)
 ```
 
+```{r wa-comparison}
+daily_totals_wa <- wa_offenses %>% 
+  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(date)
+
+monthly_totals_wa <- wa_offenses %>% 
+  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>%
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(my)
+```
+
+```{r wa-graph}
+ggplot(daily_totals_wa, aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  ylim(100, 300) +
+  labs(title = "Daily Crime Incident Trends in Seattle for 5 Years", 
+       x = "Date", 
+       y = "Number of Non-Traffic Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+### Exploratory Data Analysis (Violent CO Crimes)
+
+According to the FBI UCR "violent crime" definition, a violent crime is comprised of four offenses: murder and nonnegligent manslaughter, forcible rape, robbery, and aggravated assault. Crucially, other common violent offenses (extortion, harassment, burglary, statutory rape, etc.) are excluded.
+
+```{r}
+co_offenses %>% 
+  count(OFFENSE_CATEGORY_ID)
+```
+
+"Aggravated Assault"
+Murder & Nonnegligent Manslaughter
+Rape
+Robbery
+Sexual Assault With An Object
+
+```{r}
+co_violent <- co_offenses %>%
+  filter(OFFENSE_CATEGORY_ID == "aggravated-assault" | 
+           OFFENSE_CATEGORY_ID == "murder" | 
+           OFFENSE_CATEGORY_ID == "robbery" | 
+           OFFENSE_CATEGORY_ID == "sexual-assault") %>% 
+  filter(OFFENSE_TYPE_ID != "homicide-negligent")
+
+daily_violent <- co_violent %>% 
+  count(date)
+
+monthly_violent <- co_violent %>% 
+  count(my)
+```
+
+```{r}
+ggplot(daily_violent, aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  labs(title = "Daily UCR Violent Crime Incident Trends in Denver for 5 Years", 
+       x = "Date", 
+       y = "Number of Violent Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+```{r}
+co_violent %>% 
+  filter(date >= as.Date("2020-06-19")) %>% 
+  nrow() #337 day time period
+co_violent %>% 
+  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-21")) %>% 
+  nrow() #2019-20
+co_violent %>% 
+  filter(date >= as.Date("2018-06-19") & date <= as.Date("2019-05-21")) %>% 
+  nrow() #2018-19
+co_violent %>% 
+  filter(date >= as.Date("2017-06-19") & date <= as.Date("2018-05-21")) %>% 
+  nrow() #2017-18
+co_violent %>% 
+  filter(date >= as.Date("2016-06-19") & date <= as.Date("2017-05-21")) %>% 
+  nrow() #2016-17
+```
+
+```{r}
+wa_violent %>% 
+  filter(date >= as.Date("2020-06-19")) %>% 
+  nrow() #337 day time period
+wa_violent %>% 
+  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-21")) %>% 
+  nrow() #2019-20
+wa_violent %>% 
+  filter(date >= as.Date("2018-06-19") & date <= as.Date("2019-05-21")) %>% 
+  nrow() #2018-19
+wa_violent %>% 
+  filter(date >= as.Date("2017-06-19") & date <= as.Date("2018-05-21")) %>% 
+  nrow() #2017-18
+wa_violent %>% 
+  filter(date >= as.Date("2016-06-19") & date <= as.Date("2017-05-21")) %>% 
+  nrow() #2016-17
+```
+
+
+```{r}
+wa_violent <- wa_offenses %>% 
+  filter(offense == "Aggravated Assault" | 
+           offense == "Murder & Nonnegligent Manslaughter" | 
+           offense == "Rape" | 
+           offense == "Robbery" |
+           offense == "Sexual Assault With An Object")
+
+daily_violent_wa <- wa_violent %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(date)
+```
+
+
 ### Analysis (CO Crimes)
 
 I considered several different analysis techniques to gain some insight into whether the adoption of qualified immunity coincided with increases in crime, but I concluded that most analysis techniques need more data (for instance, one analysis technique would be to construct a model where the changes in months could account for seasonal crime changes, but each month coefficient would only have a sample of 5 to generate conclusions from, not nearly large enough to make a good model). Since we are using census level data, I calculated the total number of non-traffic crimes (vehicular assault included) since qualified immunity was passed until May 21 and then compared that figure to a similar time period with the same number of days from the previous year (2019-20).
@@ -253,9 +379,139 @@ co_offenses %>%
 
 ```
 
-The most that crime numbers differed within one year between similar time intervals in the past is 2142 non-traffic offenses between the June-May time intervals from 2016-17 and from 2017-18. Of course, our sample size is far too low to make any statistically sound conclusions. However, the data strongly suggests that the 6773-offense jump between the May-June time intervals before qualified immunity and after qualified immunity is irregularly large (more than 3x the last greatest crime jump in the last 5 years). Based on the data, it appears that the passage of qualified immunity coincided with an irregularly large jump in non-traffic offenses.
+The most that crime numbers differed within one year between similar time intervals in the past is 2142 non-traffic offenses between the June-May time intervals from 2016-17 and from 2017-18. The data strongly suggests that the 6773-offense jump between the May-June time intervals before qualified immunity and after qualified immunity is irregularly large (more than 3x the last greatest crime jump in the last 5 years). Based on the data, it appears that the passage of qualified immunity coincided with an irregularly large jump in non-traffic offenses.
 
-Our analysis, however, cannot rule out a host of other lurking variables that could explain the leap in crime between the 2019-20 time interval and 2020-21 time interval. The passage of qualified immunity in Denver also coincided with George Floyd protests, decreased trust in police, and increased violence which would all contribute to increased crime figures.
+I decided to statistically test the above conclusions using a 2-sample t-test comparing the mean daily offenses from the June 2020-May 2021 time period compared to the June 2019-May 2020 time period.
+
+$H_0: \mu_{2020-21} = \mu_{2019-20}$. The true mean daily number of non-traffic offenses in Denver, Colorado for the June 2020-May 2021 time period is equal to the true mean daily number of non-traffic offenses in Denver, CO for the June 2019-May 2020 time period.
+
+$H_A: \mu_{2020-21} > \mu_{2019-20}$. The true mean daily number of non-traffic offenses for the June 2020-May 2021 time period in Denver, CO is greater than the true mean daily number of non-traffic offenses in Denver, CO for the June 2019-May 2020 time period.
+
+$\alpha$ = 0.01
+
+```{r wrangling-test-offenses}
+period <- daily_totals %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+
+period2 <- daily_totals %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") |
+      date >= as.Date("2018-06-19") & date < as.Date("2019-05-21") |
+      date >= as.Date("2017-06-19") & date < as.Date("2018-05-21") |
+      date >= as.Date("2016-06-19") & date < as.Date("2017-05-21") ~ "before_qi",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "after_qi"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+```
+
+```{r t-test-limited}
+period %>% 
+  t_test(n ~ time_period, 
+         mu = 0, 
+         order = c("2020-21", "2019-20"), 
+         alternative = "greater", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+With a p-value of roughly 0 less than the preset alpha level of 0.01, I reject the null hypothesis. The data provides sufficient evidence to indicate that the true mean daily number of reported non-traffic criminal offenses in Denver, CO from the June 2020 to May 2021 time period is greater than the true mean daily number of reported non-traffic criminal offenses from June 2019 to May 2020 in Denver, CO. 
+
+```{r conf-int}
+period %>% 
+  t_test(n ~ time_period, 
+         mu = 0, 
+         order = c("2020-21", "2019-20"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+In particular, based on this 95% confidence interval, the true mean daily number of non-traffic criminal offenses that occurred in Denver, CO from June 2020 to May 2021 is about 17.008 to 24.391 offenses greater than the true mean daily number of non-traffic criminal offenses that occurred in Denver, CO from June 2019 to May 2020.
+
+I repeated the same t-test but incorporated data from June-May time periods from the past 5 years to account for yearly variations in crime.
+
+```{r t-test-5-years}
+period2 %>% 
+  t_test(n ~ time_period, 
+         mu = 0, 
+         order = c("after_qi", "before_qi"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+With a p-value of roughly 0 which is well below a reasonable alpha level of 0.01, the data provides sufficient evidence to indicate that the true mean daily number of non-traffic crimes in Denver, CO from June 2020 to May 2021 is greater than the true mean daily number of non-traffic crimes in those same time periods from 2016-2020 in Denver, CO.
+```{r}
+obs_diff <- period %>% 
+  specify(n ~ time_period) %>% 
+  calculate(stat = "diff in means", 
+            order = c("2020-21", "2019-20"))
+```
+
+These two-sample t-tests indicate that the passage of qualified immunity coincided with a statistically and practically significant increase in average daily crimes in Denver, CO. The above t-tests decrease the possibility that the data collected from Denver stems merely from random chance. Our analysis, however, cannot rule out a host of other lurking variables that could explain the leap in crime between the 2019-20 time interval and 2020-21 time interval. The passage of qualified immunity in Denver also coincided with George Floyd protests, decreased trust in police, and increased violence which would all contribute to increased crime figures. The only way to attempt to eliminate these other lurking variables is to compare the leap in crime in Denver, CO with cities with similar crime dynamics that did not pass qualified immunity reform.
+
+Before doing that, I ran the same analysis but with a specific focus on violent crimes as opposed to all non-traffic offenses.
+
+$H_0: \mu_{2020-21} = \mu_{2019-20}$. The mean daily number of violent offenses in Denver, CO from June 2020 to May 2021 is equal to the true mean daily number of violent offenses in Denver, CO from June 2019 to May 2020.
+
+$H_A: \mu_{2020-21} > \mu_{2019-20}$. The mean daily number of violent offenses in Denver, CO from June 2020 to May 2021 is greater than the true mean daily number of violent offenses in Denver, CO from June 2019 to May 2020.
+
+$\alpha$ = 0.01
+
+```{r violent-wrangling}
+period3 <- daily_violent %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+
+period4 <- daily_violent %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") |
+      date >= as.Date("2018-06-19") & date < as.Date("2019-05-21") |
+      date >= as.Date("2017-06-19") & date < as.Date("2018-05-21") |
+      date >= as.Date("2016-06-19") & date < as.Date("2017-05-21") ~ "before_qi",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "after_qi"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+```
+
+```{r co-violent-t-test}
+period3 %>% 
+  t_test(n ~ time_period, 
+         mu = 0, 
+         order = c("2020-21", "2019-20"), 
+         alternative = "greater", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of 0.001 is smaller than the preset alpha level of 0.01, I reject the null hypothesis. The data provides sufficient evidence to indicate that the true mean daily number of violent offenses from June 2020 to May 2021 is greater than the true mean daily number of violent offenses from June 2019 to May 2020.
+
+$H_0: \mu_{2020-21} = \mu_{2016-20}$. The mean daily number of violent offenses in Denver, CO from June 2020 to May 2021 is equal to the true mean daily number of violent offenses in Denver, CO in the same segmented time periods from June 2016 to May 2020.
+
+$H_A: \mu_{2020-21} > \mu_{2016-20}$. The mean daily number of violent offenses in Denver, CO from June 2020 to May 2021 is greater than the true mean daily number of violent offenses in Denver, CO in the same segmented time periods from June 2016 to May 2020.
+
+$\alpha$ = 0.01
+
+```{r expanded-co-violent-t-test}
+period4 %>% 
+  t_test(n ~ time_period, 
+         mu = 0, 
+         order = c("after_qi", "before_qi"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of roughly 0 is less than the preset alpha level of 0.05, I reject the null hypothesis. The data provides sufficient evidence to indicate that the true mean daily number of violent offenses in Denver, CO from June 2020 to May 2021 is greater than the true mean daily number of violent offenses in Denver, CO in the same segmented time periods from June 2016 to May 2020.
+
+### Overall Conclusions
+The passage of qualified immunity almost certainly coincided with a sustained increase in the average daily number of violent criminal and non-traffic offenses when compared with previous years. It is extremely unlikely that this increase resulted purely from chance (as proven by the t-tests above). The difference between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period is also practically significant with between 14 and 20 more non-traffic offenses being reported to the police on average every day in the June 2020 to May 2021 time period. However, my analysis cannot rule out a series of lurking variables that could explain the increase in crime during this time period. After conducting significant research, I determined that Seattle, WA possesses similar crime dynamics and demographic information (such as population and violent crime rates) to Denver, CO and could serve as a control in this study.
+
+
 
 ## Civilian Shootings
 
