@@ -245,12 +245,7 @@ ggplot(daily_totals_wa, aes(x = date, y = n)) +
 
 ### Exploratory Data Analysis (Violent CO Crimes)
 
-According to the FBI UCR "violent crime" definition, a violent crime is comprised of four offenses: murder and nonnegligent manslaughter, forcible rape, robbery, and aggravated assault. Crucially, other common violent offenses (extortion, harassment, burglary, statutory rape, etc.) are excluded.
-
-```{r}
-co_offenses %>% 
-  count(OFFENSE_CATEGORY_ID)
-```
+According to the FBI UCR "violent crime" definition, a violent crime is comprised of four offenses: murder and nonnegligent manslaughter, forcible rape, robbery, and aggravated assault. Crucially, other common violent offenses (extortion, harassment, burglary, statutory rape, kidnapping, etc.) are excluded.
 
 "Aggravated Assault"
 Murder & Nonnegligent Manslaughter
@@ -273,7 +268,7 @@ monthly_violent <- co_violent %>%
   count(my)
 ```
 
-```{r}
+```{r violent-plot}
 ggplot(daily_violent, aes(x = date, y = n)) +
   geom_point(alpha = 0.5) + 
   labs(title = "Daily UCR Violent Crime Incident Trends in Denver for 5 Years", 
@@ -321,7 +316,6 @@ wa_violent %>%
   nrow() #2016-17
 ```
 
-
 ```{r}
 wa_violent <- wa_offenses %>% 
   filter(offense == "Aggravated Assault" | 
@@ -335,7 +329,17 @@ daily_violent_wa <- wa_violent %>%
   count(date)
 ```
 
-
+```{r wa-plot-violent}
+ggplot(daily_violent_wa, aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  labs(title = "Daily UCR Violent Crime Incident Trends in Seattle for 5 Years", 
+       x = "Date", 
+       y = "Number of Violent Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
 ### Analysis (CO Crimes)
 
 I considered several different analysis techniques to gain some insight into whether the adoption of qualified immunity coincided with increases in crime, but I concluded that most analysis techniques need more data (for instance, one analysis technique would be to construct a model where the changes in months could account for seasonal crime changes, but each month coefficient would only have a sample of 5 to generate conclusions from, not nearly large enough to make a good model). Since we are using census level data, I calculated the total number of non-traffic crimes (vehicular assault included) since qualified immunity was passed until May 21 and then compared that figure to a similar time period with the same number of days from the previous year (2019-20).
@@ -485,7 +489,7 @@ period3 %>%
   t_test(n ~ time_period, 
          mu = 0, 
          order = c("2020-21", "2019-20"), 
-         alternative = "greater", 
+         alternative = "two-sided", 
          conf_int = TRUE, conf_level = 0.95)
 ```
 
@@ -511,6 +515,94 @@ Because the p-value of roughly 0 is less than the preset alpha level of 0.05, I 
 ### Overall Conclusions
 The passage of qualified immunity almost certainly coincided with a sustained increase in the average daily number of violent criminal and non-traffic offenses when compared with previous years. It is extremely unlikely that this increase resulted purely from chance (as proven by the t-tests above). The difference between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period is also practically significant with between 14 and 20 more non-traffic offenses being reported to the police on average every day in the June 2020 to May 2021 time period. However, my analysis cannot rule out a series of lurking variables that could explain the increase in crime during this time period. After conducting significant research, I determined that Seattle, WA possesses similar crime dynamics and demographic information (such as population and violent crime rates) to Denver, CO and could serve as a control in this study.
 
+### Seattle Comparison
+
+I will first calculate a confidence interval for the increase in violent crimes in Seattle, WA from the same time periods between June 2019 to May 2020 and June 2020 to May 2021. I will then convert the raw offense numbers to proportionate increases from the 2019-20 time period in Seattle and use the proportionate increases to determine if the confidence interval increases in Denver, CO had similar increases in violent crime numbers.
+
+```{r}
+period_wa <- daily_violent_wa %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+
+period_wa2 <- daily_violent_wa %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") |
+      date >= as.Date("2018-06-19") & date < as.Date("2019-05-21") |
+      date >= as.Date("2017-06-19") & date < as.Date("2018-05-21") |
+      date >= as.Date("2016-06-19") & date < as.Date("2017-05-21") ~ "before_qi",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "after_qi"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+```
+
+```{r co-violent-t-test}
+period_wa %>% 
+  t_test(n ~ time_period, 
+         mu = 0, 
+         order = c("2020-21", "2019-20"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+```{r}
+period_wa %>% 
+  group_by(time_period) %>% 
+  summarise(mean = mean(n))
+```
+
+```{r}
+
+0.02465887 / 12.02381
+1.225341 / 12.02381
+
+```
+
+We are 95% confident that the true mean number of Seattle violent offenses increased by between 0.205% to 10.191% from June 2020 to May 2021 compared to June 2019 to May 2020. 
+
+```{r}
+period3 %>% 
+  group_by(time_period) %>% 
+  summarise(mean = mean(n))
+```
+
+Applying the percentage confidence interval from Seattle to Denver, taking means from both time periods in Denver as given, there does not appear to be a statistically significant difference between the two city's increases in violent crime. When we apply the percentage confidence interval using Seattle data, we find that the 95% confidence interval for the average daily number of violent crimes between June 2020 and May 2021 to be between 12.812 violent offenses per day and 14.089 violent offenses/day. The mean presented in the data is 13.908 violent offenses per day, which is well within the confidence interval from Seattle. Thus, the data seems to suggest that increases in violent crime in Denver may have been caused by other lurking variables unrelated to qualified immunity reform.
+
+```{r combine-analysis}
+t1 <- period3 %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- period3 %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = p2 / p1) %>% 
+  mutate(jurisdiction = "Denver")
+
+wat1 <- period_wa %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- period_wa %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(diff = p2 / p1) %>% 
+  mutate(jurisdiction = "Washington")
+```
+
+```{r}
+12.78571 * 1.275408	
+```
 
 
 ## Civilian Shootings
