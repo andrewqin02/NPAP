@@ -571,6 +571,14 @@ period3 %>%
 
 Applying the percentage confidence interval from Seattle to Denver, taking means from both time periods in Denver as given, there does not appear to be a statistically significant difference between the two city's increases in violent crime. When we apply the percentage confidence interval using Seattle data, we find that the 95% confidence interval for the average daily number of violent crimes between June 2020 and May 2021 to be between 12.812 violent offenses per day and 14.089 violent offenses/day. The mean presented in the data is 13.908 violent offenses per day, which is well within the confidence interval from Seattle. Thus, the data seems to suggest that increases in violent crime in Denver may have been caused by other lurking variables unrelated to qualified immunity reform.
 
+Outside of the above percentage confidence interval, I used a two-sample t-test to compare the 2019-2020 and 2020-21 differences in daily violent crime numbers between Seattle and Denver. I created two new `combined_analysis` data frames that corresponded the daily numbers from June 2019 to May 2020 with the daily numbers from June 2020 to MAy 2021 in each jurisdiction and took the difference between the post-QI reform period from the pre-QI reform period. I then divided the difference by the total number of violent offenses in the 2019-20 period to proportionally standardize the differences.
+
+$H_0: \mu_{Denver} = \mu_{Seattle}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Seattle.
+
+$H_A: \mu_{2020-21} ≠ \mu_{2016-20}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Seattle.
+
+$\alpha$ = 0.01
+
 ```{r combine-analysis}
 t1 <- period3 %>% 
   filter(time_period == "2019-20") %>% 
@@ -582,7 +590,7 @@ t2 <- period3 %>%
   rename("p2" = n)
 
 combined_analysis <- tibble(t1, t2) %>% 
-  mutate(diff = p2 / p1) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
   mutate(jurisdiction = "Denver")
 
 wat1 <- period_wa %>% 
@@ -591,18 +599,70 @@ wat1 <- period_wa %>%
   rename("p1" = n)
 
 wat2 <- period_wa %>% 
-  filter(time_period == "2019-20") %>% 
+  filter(time_period == "2020-21") %>% 
   select(n) %>% 
   rename("p2" = n)
 
 combined_analysiswa <- tibble(wat1, wat2) %>% 
-  mutate(diff = p2 / p1) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
   mutate(jurisdiction = "Washington")
+
+combined <- full_join(combined_analysis, combined_analysiswa)
+```
+```{r}
+combined %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Washington"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
 ```
 
-```{r}
-12.78571 * 1.275408	
+Because the p-value of 0.332 is much larger than our preset alpha level of 0.01, we fail to reject the null hypothesis. The data does not provide sufficient evidence to indicate that the true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Seattle. Although we cannot conclude that the proportional average daily differences in Denver, CO are only larger than Seattle's by chance, the data does not provide us sufficient evidence to rule out chance as the reason why the number of daily violent offenses is larger than the 2019-20 numbers when compared to the control city of Seattle.
+
+I decided to run the same test without proportional standardization to determine if results change.
+
+```{r no-standardization}
+t1 <- period3 %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- period3 %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1)) %>% 
+  mutate(jurisdiction = "Denver")
+
+wat1 <- period_wa %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- period_wa %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1)) %>% 
+  mutate(jurisdiction = "Washington")
+
+combined <- full_join(combined_analysis, combined_analysiswa)
 ```
+```{r test-no-standardization}
+combined %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Washington"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of 0.278 is greater than a reasonable alpha level of 0.01, we fail to reject the null. The data does not provide sufficient evidence to indicate that the true mean daily difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily difference in number of violent offenses between the two time periods in Seattle.
+
 
 
 ## Civilian Shootings
