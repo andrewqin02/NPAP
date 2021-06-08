@@ -25,7 +25,12 @@ set.seed(460)
 ct_offenses <- read_csv("data/srs_offenses.csv")
 co_offenses <- read_csv("data/crime.csv")
 wa_offenses <- read_csv("data/SPD_Crime_Data__2008-Present.csv")
-shootings <- read_excel("data/MPVDatasetDownload.xlsx")
+mn_offenses18 <- read_csv("data/Police_Incidents_2018_PIMS.csv")
+mn_offenses19 <- read_csv("data/Police_Incidents_2019.csv")
+mn_offenses20 <- read_csv("data/Police_Incidents_2020.csv")
+mn_offenses21 <- read_csv("data/Police_Incidents_2021.csv")
+
+# shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
 
 ### Wrangling
@@ -81,6 +86,38 @@ wa_offenses <- tibble(wa_offenses, dates) %>%
   mutate(my = paste0(month, "-01-", year)) %>% 
   mutate(my = mdy(my)) # convert to date format
 ```
+
+
+```{r mn-wrangling, message = FALSE}
+mn_offenses18 <- mn_offenses18 %>% 
+  mutate(precinct = as.character(precinct))
+mn_offenses21 <- mn_offenses21 %>% 
+  mutate(precinct = as.character(precinct))
+mn_offenses <- full_join(mn_offenses18, mn_offenses19)
+mn_offenses <- full_join(mn_offenses, mn_offenses20)
+mn_offenses <- full_join(mn_offenses, mn_offenses21)
+
+mn_offenses$reportedDate <- str_split(mn_offenses$reportedDate, " ", 
+                                      simplify = TRUE)[,1] # Get rid of time
+
+dates <- str_split(mn_offenses$reportedDate, "/", simplify = TRUE)
+month <- dates[,2]
+year <- dates[,1]
+dates <- tibble(month = month, year = year)
+mn_offenses <- tibble(mn_offenses, dates) %>% 
+  mutate(reportedDate = ymd(reportedDate)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+mn_offenses <- mn_offenses %>% 
+  mutate(violent = ifelse(
+    UCRCode == "01" | UCRCode == "02" | UCRCode == "03" | UCRCode == "04" |
+    description == "ROBBERY INCLUDING AUTO THEFT", 1, 0))
+
+mn_violent <- mn_offenses %>% 
+  filter(violent == 1)
+```
+
 
 
 ```{r wrangling-shootings}
@@ -663,6 +700,56 @@ combined %>%
 
 Because the p-value of 0.278 is greater than a reasonable alpha level of 0.01, we fail to reject the null. The data does not provide sufficient evidence to indicate that the true mean daily difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily difference in number of violent offenses between the two time periods in Seattle.
 
+### Minneapolis Comparison
+
+I ran the same test but with a different control city - Minneapolis.
+
+```{r}
+antijoin <- anti_join(period_mn, period3, by = "date")
+```
+
+
+
+```{r}
+mn_violent_daily <- mn_violent %>% 
+  count(reportedDate)
+
+period_mn <- mn_violent_daily %>% 
+  mutate(time_period = case_when(
+    reportedDate >= as.Date("2019-06-19") & reportedDate < as.Date("2020-05-20") ~ "2019-20",
+    reportedDate >= as.Date("2020-06-19") & reportedDate < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+t1 <- period3 %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- period3 %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(jurisdiction = "Denver")
+
+wat1 <- period_mn %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- period_mn %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysismn <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(jurisdiction = "Minneapolis")
+
+combined_mn <- full_join(combined_analysis, combined_analysismn)
+```
 
 
 ## Civilian Shootings
