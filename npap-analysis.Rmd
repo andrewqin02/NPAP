@@ -702,15 +702,11 @@ Because the p-value of 0.278 is greater than a reasonable alpha level of 0.01, w
 
 ### Minneapolis Comparison
 
-I ran the same test but with a different control city - Minneapolis.
-
-```{r}
-antijoin <- anti_join(period_mn, period3, by = "date")
-```
+I ran the same test but with a different control city - Minneapolis. I calculated the same proportional daily differences in violent crimes between both cities and ran a t-test to determine if the proportional daily differences in violent crimes were different between the two cities.
 
 
 
-```{r}
+```{r mn-test-setup}
 mn_violent_daily <- mn_violent %>% 
   count(reportedDate)
 
@@ -720,6 +716,16 @@ period_mn <- mn_violent_daily %>%
     reportedDate >= as.Date("2020-06-19") & reportedDate < as.Date("2021-05-21") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
+
+names(period_mn)[1] = "date"
+antijoin <- anti_join(period3, period_mn, by = "date")
+
+antijoin <- antijoin %>% 
+  select(date, time_period) %>% 
+  mutate(n = 0)
+
+period_mn <- full_join(period_mn, antijoin) %>% 
+  arrange(date)
 
 t1 <- period3 %>% 
   filter(time_period == "2019-20") %>% 
@@ -732,6 +738,7 @@ t2 <- period3 %>%
 
 combined_analysis <- tibble(t1, t2) %>% 
   mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
   mutate(jurisdiction = "Denver")
 
 wat1 <- period_mn %>% 
@@ -746,10 +753,43 @@ wat2 <- period_mn %>%
 
 combined_analysismn <- tibble(wat1, wat2) %>% 
   mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
   mutate(jurisdiction = "Minneapolis")
 
 combined_mn <- full_join(combined_analysis, combined_analysismn)
 ```
+
+$H_0: \mu_{Denver} = \mu_{Minneapolis}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis
+
+$H_A: \mu_Denver} ≠ \mu_{Minneapolis}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis
+
+$\alpha$ = 0.01
+
+
+```{r mn-t-test}
+combined_mn %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because our p-value of nearly 0 is less than our alpha level of 0.01, I reject the null hypothesis. The data does provide sufficient evidnece to indicate that the true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis. However, when analyzing the confidence interval, it appears that the two-sample t-interval, in fact, concludes the opposite: Minneapolis's average daily proportional increase in violent crime was statistically significantly greater than Denver's average daily proportional increase, given that the confidence interval doesn't include 0 and is entirely negative (the confidence interval indicates the numbers of Denver - Minneapolis, meaning a negative confidence interval indicates that Minneapolis had a greater average daily difference in violent crime). 
+
+This test appears to indicate the possibility of a national trend in violent crime increase or, at least, that other cities that didn't pass QI reform also experienced a daily proportional violent crime increase.
+
+```{r mn-t-test}
+combined_mn %>% 
+  t_test(abs_diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+In terms of absolute differences, however, the high p-value of 0.204 is well above an alpha level of 0.01, meaning we cannot reject the null hypothesis. The data does not provide significant evidence that Minneapolis' daily average absolute increase in violent crime was not equal to Denver's daily average absolute increase in violent crime between the two periods. However, we would like to caution that the use of raw absolute data may not tell the full story, since Minneapolis began with a lower number of violent offenses per day, meaning the increase is proportionately much greater than in Denver.
+
 
 
 ## Civilian Shootings
