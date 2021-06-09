@@ -51,8 +51,17 @@ ct_offenses <- ct_offenses %>%  # Mutate new variables and create date
 totals <- ct_offenses %>%  # create totals
   filter(offense == "Grand Total") %>% 
   mutate(clearance_rate = (cleared / number))
+
+
 ```
 
+According to the FBI UCR "violent crime" definition, a violent crime is comprised of four offenses: murder and nonnegligent manslaughter, forcible rape, robbery, and aggravated assault. Crucially, other common violent offenses (extortion, harassment, burglary, statutory rape, kidnapping, etc.) are excluded.
+
+"Aggravated Assault"
+Murder & Nonnegligent Manslaughter
+Rape
+Robbery
+Sexual Assault With An Object
 
 ```{r add-dates}
 dates <- str_split(co_offenses$FIRST_OCCURRENCE_DATE, " ", simplify = TRUE)
@@ -65,7 +74,43 @@ co_offenses <- tibble(co_offenses, dates) %>%
   mutate(date = mdy(date)) %>% 
   mutate(my = paste0(month, "-01-", year)) %>% 
   mutate(my = mdy(my))
+
+co_offenses <- co_offenses %>% 
+  mutate(violent = if_else(OFFENSE_CATEGORY_ID == "aggravated-assault" | 
+           OFFENSE_CATEGORY_ID == "murder" & 
+             OFFENSE_TYPE_ID != "homicide-negligent" | 
+           OFFENSE_CATEGORY_ID == "robbery" | 
+           OFFENSE_CATEGORY_ID == "sexual-assault", 1, 0)) %>% 
+  mutate(property = if_else(OFFENSE_CATEGORY_ID == "arson" |
+                              OFFENSE_CATEGORY_ID == "auto-theft" |
+                              OFFENSE_CATEGORY_ID == "burglary" | 
+                              OFFENSE_CATEGORY_ID == "larceny" |
+                              OFFENSE_CATEGORY_ID == "theft-from-motor-vehicle", 
+                            1, 0))
+
+daily_totals <- co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  count(date)
+
+monthly_totals <- co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  mutate(my = as.Date(my)) %>% 
+  count(my)
+
+daily_violent <- co_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date)
+
+monthly_violent <- co_offenses %>% 
+  filter(violent == 1) %>% 
+  count(my)
+
+co_property_totals <- co_offenses %>% 
+  filter(property == 1) %>% 
+  count(date)
+
 ```
+
 
 ```{r add-date-wa}
 names(wa_offenses)[3] <- 'date'
@@ -85,7 +130,35 @@ wa_offenses <- tibble(wa_offenses, dates) %>%
   mutate(date = mdy(date)) %>% 
   mutate(my = paste0(month, "-01-", year)) %>% 
   mutate(my = mdy(my)) # convert to date format
+
+wa_offenses <- wa_offenses %>% 
+  mutate(violent = ifelse(offense == "Aggravated Assault" | 
+           offense == "Murder & Nonnegligent Manslaughter" | 
+           offense == "Rape" | 
+           offense == "Robbery" |
+           offense == "Sexual Assault With An Object", 1, 0)) %>% 
+  mutate(property = ifelse(offense == "All Other Larceny" | 
+                             offense == "Arson" | 
+                             offense == "Burglary/Breaking & Entering" |
+                             offense == "Motor Vehicle Theft" | 
+                             offense == "Shoplifting" | 
+                             offense == "Stolen Property Offenses" | 
+                             offense == "Theft From Building" | 
+                             offense == "Theft From Coin-Operated Machine or Device" | 
+                             offense == "Theft From Motor Vehicle" | 
+                             offense == "Theft of Motor Vehicle Parts or Accessories" | 
+                             offense == "Destruction/Damage/Vandalism of Property", 1, 0))
+daily_totals_wa <- wa_offenses %>% 
+  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(date)
+
+monthly_totals_wa <- wa_offenses %>% 
+  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>%
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(my)
 ```
+
 
 
 ```{r mn-wrangling, message = FALSE}
@@ -109,13 +182,22 @@ mn_offenses <- tibble(mn_offenses, dates) %>%
   mutate(my = paste0(month, "-01-", year)) %>% 
   mutate(my = mdy(my)) # convert to date format
 
+names(mn_offenses)[6] = "date"
 mn_offenses <- mn_offenses %>% 
   mutate(violent = ifelse(
-    UCRCode == "01" | UCRCode == "02" | UCRCode == "03" | UCRCode == "04" |
-    description == "ROBBERY INCLUDING AUTO THEFT", 1, 0))
+    UCRCode == "01" | UCRCode == "05" & description != "OBS - ASLT-POLICE/EMERG P" 
+    & description != "ASLT 4-LESS THAN SUBST HARM" & 
+      description != "DISARM A POLICE OFFICER" | UCRCode == "03" | UCRCode == "04" |
+    description == "ROBBERY INCLUDING AUTO THEFT", 1, 0)) %>% 
+  mutate(property = ifelse(UCRCode == "06" | UCRCode == "07" | UCRCode == "08" | 
+                             UCRCode == "10", 1, 0))
 
 mn_violent <- mn_offenses %>% 
   filter(violent == 1)
+
+mn_property_totals <- mn_offenses %>% 
+  filter(property == 1) %>% 
+  count(date)
 ```
 
 
@@ -190,15 +272,6 @@ Colorado's qualified immunity bill was passed on June 19, 2020, and Section 3 ca
 
 
 ```{r}
-daily_totals <- co_offenses %>% 
-  filter(IS_CRIME == 1) %>% 
-  count(date)
-
-monthly_totals <- co_offenses %>% 
-  filter(IS_CRIME == 1) %>% 
-  mutate(my = as.Date(my)) %>% 
-  count(my)
-
 daily_totals %>% 
   filter(date >= as.Date("2020-01-01") & date < as.Date("2021-01-01")) %>% 
   ggplot(aes(x = date, y = n)) +
@@ -254,19 +327,6 @@ monthly_totals %>%
   geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
              color = "red", alpha = 0.5)
 ```
-
-```{r wa-comparison}
-daily_totals_wa <- wa_offenses %>% 
-  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>% 
-  filter(date >= as.Date("2016-01-01")) %>% 
-  count(date)
-
-monthly_totals_wa <- wa_offenses %>% 
-  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>%
-  filter(date >= as.Date("2016-01-01")) %>% 
-  count(my)
-```
-
 ```{r wa-graph}
 ggplot(daily_totals_wa, aes(x = date, y = n)) +
   geom_point(alpha = 0.5) + 
@@ -281,29 +341,6 @@ ggplot(daily_totals_wa, aes(x = date, y = n)) +
 ```
 
 ### Exploratory Data Analysis (Violent CO Crimes)
-
-According to the FBI UCR "violent crime" definition, a violent crime is comprised of four offenses: murder and nonnegligent manslaughter, forcible rape, robbery, and aggravated assault. Crucially, other common violent offenses (extortion, harassment, burglary, statutory rape, kidnapping, etc.) are excluded.
-
-"Aggravated Assault"
-Murder & Nonnegligent Manslaughter
-Rape
-Robbery
-Sexual Assault With An Object
-
-```{r}
-co_violent <- co_offenses %>%
-  filter(OFFENSE_CATEGORY_ID == "aggravated-assault" | 
-           OFFENSE_CATEGORY_ID == "murder" | 
-           OFFENSE_CATEGORY_ID == "robbery" | 
-           OFFENSE_CATEGORY_ID == "sexual-assault") %>% 
-  filter(OFFENSE_TYPE_ID != "homicide-negligent")
-
-daily_violent <- co_violent %>% 
-  count(date)
-
-monthly_violent <- co_violent %>% 
-  count(my)
-```
 
 ```{r violent-plot}
 ggplot(daily_violent, aes(x = date, y = n)) +
@@ -788,9 +825,93 @@ combined_mn %>%
          conf_int = TRUE, conf_level = 0.95)
 ```
 
-In terms of absolute differences, however, the high p-value of 0.204 is well above an alpha level of 0.01, meaning we cannot reject the null hypothesis. The data does not provide significant evidence that Minneapolis' daily average absolute increase in violent crime was not equal to Denver's daily average absolute increase in violent crime between the two periods. However, we would like to caution that the use of raw absolute data may not tell the full story, since Minneapolis began with a lower number of violent offenses per day, meaning the increase is proportionately much greater than in Denver.
+Even in terms of absolute differences, the p-value of 0.0014 is below an alpha level of 0.01, meaning we  reject the null hypothesis. The data does provide significant evidence that Minneapolis' daily average absolute increase in violent crime was not equal to Denver's daily average absolute increase in violent crime between the two periods. Based on the two-sample confidence interval, it appears that Minneapolis had a significantly greater average absolute increase in violent crime compared to Denver's increase.
+
+## Exploratory Data Analysis (CO Property Crimes)
+
+```{r}
+co_property_totals %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  labs(title = "Daily Property Crime Incident Trends in Denver for 5 Years", 
+       x = "Date", 
+       y = "Number of UCR Property Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
 
 
+#### Property Crimes
+
+```{r co-prop-crime-trend}
+period_mn <- mn_property_totals %>% 
+  mutate(time_period = case_when(
+    reportedDate >= as.Date("2019-06-19") & reportedDate < as.Date("2020-05-20") ~ "2019-20",
+    reportedDate >= as.Date("2020-06-19") & reportedDate < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+names(period_mn)[1] = "date"
+antijoin <- anti_join(period3, period_mn, by = "date")
+
+antijoin <- antijoin %>% 
+  select(date, time_period) %>% 
+  mutate(n = 0)
+
+period_mn <- full_join(period_mn, antijoin) %>% 
+  arrange(date)
+
+co_property_period <- co_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+t1 <- co_property_period %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- co_property_period %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Denver")
+
+wat1 <- period_mn %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- period_mn %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysismn <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Minneapolis")
+
+combined_mn <- full_join(combined_analysis, combined_analysismn)
+```
+
+```{r mn-property-test}
+combined_mn %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
 
 ## Civilian Shootings
 
@@ -859,4 +980,4 @@ co_shootings %>%
 
 ```
 
-Based on these summary statistics, it does appear that qualified immunity coincided with a significant decrease in fatal police shootings. In particular, fatal police shootings decreased by 12 shootings from the June 2019 to May 2020 time period (44) compared to the June 2020 to May 2021 time period (32). When compared to the past 3 years (starting from the 2017-18 time period to now), the number of fatal police shootings had been relatively consistent at around 43-44; the number only dropped in the most recent time interval. However, when analyzing the past 7-8 years, the number of fatal police shootings have reached the lows of 18 in the past, indicating that a number as low as 32 fatal police shootings may not be particularly unusual.
+Based on these summary statistics, it does appear that qualified immunity reform coincided with a significant decrease in fatal police shootings. In particular, fatal police shootings decreased by 12 shootings from the June 2019 to May 2020 time period (44) compared to the June 2020 to May 2021 time period (32). When compared to the past 3 years (starting from the 2017-18 time period to now), the number of fatal police shootings had been relatively consistent at around 43-44; the number only dropped in the most recent time interval. However, when analyzing the past 7-8 years, the number of fatal police shootings have reached the lows of 18 in the past, indicating that a number as low as 32 fatal police shootings may not be particularly unusual.
