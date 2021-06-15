@@ -29,6 +29,7 @@ mn_offenses18 <- read_csv("data/Police_Incidents_2018_PIMS.csv")
 mn_offenses19 <- read_csv("data/Police_Incidents_2019.csv")
 mn_offenses20 <- read_csv("data/Police_Incidents_2020.csv")
 mn_offenses21 <- read_csv("data/Police_Incidents_2021.csv")
+cspd <- read_csv("data/Crime_Level_Data.csv")
 
 # shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
@@ -111,6 +112,55 @@ co_property_totals <- co_offenses %>%
 
 ```
 
+```{r cspd-wrangling}
+# names(cspd)[4] <- 'date'
+# names(cspd)[7] <- 'crime_against'
+# names(cspd)[11] <- 'description'
+
+dates <- str_split(cspd$date, " ", simplify = TRUE)
+dates <- dates[,1]
+year <- str_split(dates, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(date = dates, month = month, year = year)
+cspd <- cspd[-4]
+cspd <- tibble(cspd, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+cspd <- cspd %>% 
+  mutate(violent = if_else(description == "Aggravated Assault" | 
+                             description == "Murder and Non-Negligent Manslaughter" | 
+                             description == "Robbery" | 
+                             description == "Sexual Assault With An Object" | 
+                             description == "Forcible Fondling" |
+                             description == "Forcible Rape" | 
+                             description == "Forcible Sodomy", 1, 0)) %>% 
+  mutate(property = if_else(description == "All Other Larceny" | 
+                              description == "Arson" |
+                              description == "Burglary/Breaking & Entering" | 
+                              description == "Destruction/Damage/Vandalism of Property" | 
+                              description == "Motor Vehicle Theft" | 
+                              description == "Pocket-Picking" | 
+                              description == "Shoplifting" | 
+                              description == "Stolen Property Offenses" | 
+                              description == "Theft From Building" | 
+                              description == "Theft From Coin-Operated Device" | 
+                              description == "Theft From Motor Vehicle" | 
+                              description == "Theft Of Motor Vehicle Parts" |
+                              description == "Purse-Snatching", 1, 0))
+
+cspd_violent <- cspd %>% 
+  filter(violent == 1) %>% 
+  count(date)
+
+cspd_property <- cspd %>% 
+  filter(property == 1) %>% 
+  count(date)
+```
+
+
 
 ```{r add-date-wa}
 names(wa_offenses)[3] <- 'date'
@@ -136,18 +186,22 @@ wa_offenses <- wa_offenses %>%
            offense == "Murder & Nonnegligent Manslaughter" | 
            offense == "Rape" | 
            offense == "Robbery" |
-           offense == "Sexual Assault With An Object", 1, 0)) %>% 
+           offense == "Sexual Assault With An Object" | 
+             offense == "Fondling" | 
+             offense == "Sodomy", 1, 0)) %>% 
   mutate(property = ifelse(offense == "All Other Larceny" | 
                              offense == "Arson" | 
                              offense == "Burglary/Breaking & Entering" |
                              offense == "Motor Vehicle Theft" | 
                              offense == "Shoplifting" | 
                              offense == "Stolen Property Offenses" | 
+                             offense == "Pocket-picking" |
                              offense == "Theft From Building" | 
                              offense == "Theft From Coin-Operated Machine or Device" | 
                              offense == "Theft From Motor Vehicle" | 
                              offense == "Theft of Motor Vehicle Parts or Accessories" | 
-                             offense == "Destruction/Damage/Vandalism of Property", 1, 0))
+                             offense == "Destruction/Damage/Vandalism of Property" | 
+                             offense == "Purse-snatching", 1, 0))
 daily_totals_wa <- wa_offenses %>% 
   filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>% 
   filter(date >= as.Date("2016-01-01")) %>% 
@@ -157,6 +211,10 @@ monthly_totals_wa <- wa_offenses %>%
   filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>%
   filter(date >= as.Date("2016-01-01")) %>% 
   count(my)
+
+wa_property <- wa_offenses %>% 
+  filter(property == 1) %>% 
+  count(date)
 ```
 
 
@@ -414,6 +472,20 @@ ggplot(daily_violent_wa, aes(x = date, y = n)) +
   geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
              color = "red", alpha = 0.5)
 ```
+
+```{r cspd-violent-plot}
+cspd_violent %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  labs(title = "Daily Violent Crime Incident Trends in Colorado Springs for 5 Years", 
+       x = "Date", 
+       y = "Number of UCR Violent Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
 ### Analysis (CO Crimes)
 
 I considered several different analysis techniques to gain some insight into whether the adoption of qualified immunity coincided with increases in crime, but I concluded that most analysis techniques need more data (for instance, one analysis technique would be to construct a model where the changes in months could account for seasonal crime changes, but each month coefficient would only have a sample of 5 to generate conclusions from, not nearly large enough to make a good model). Since we are using census level data, I calculated the total number of non-traffic crimes (vehicular assault included) since qualified immunity was passed until May 21 and then compared that figure to a similar time period with the same number of days from the previous year (2019-20).
@@ -664,7 +736,8 @@ t2 <- period3 %>%
   rename("p2" = n)
 
 combined_analysis <- tibble(t1, t2) %>% 
-  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
   mutate(jurisdiction = "Denver")
 
 wat1 <- period_wa %>% 
@@ -678,7 +751,8 @@ wat2 <- period_wa %>%
   rename("p2" = n)
 
 combined_analysiswa <- tibble(wat1, wat2) %>% 
-  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
   mutate(jurisdiction = "Washington")
 
 combined <- full_join(combined_analysis, combined_analysiswa)
@@ -696,39 +770,9 @@ Because the p-value of 0.332 is much larger than our preset alpha level of 0.01,
 
 I decided to run the same test without proportional standardization to determine if results change.
 
-```{r no-standardization}
-t1 <- period3 %>% 
-  filter(time_period == "2019-20") %>% 
-  select(n) %>% 
-  rename("p1" = n)
-t2 <- period3 %>% 
-  filter(time_period == "2020-21") %>% 
-  select(n) %>% 
-  rename("p2" = n)
-
-combined_analysis <- tibble(t1, t2) %>% 
-  mutate(diff = (p2 - p1)) %>% 
-  mutate(jurisdiction = "Denver")
-
-wat1 <- period_wa %>% 
-  filter(time_period == "2019-20") %>% 
-  select(n) %>% 
-  rename("p1" = n)
-
-wat2 <- period_wa %>% 
-  filter(time_period == "2020-21") %>% 
-  select(n) %>% 
-  rename("p2" = n)
-
-combined_analysiswa <- tibble(wat1, wat2) %>% 
-  mutate(diff = (p2 - p1)) %>% 
-  mutate(jurisdiction = "Washington")
-
-combined <- full_join(combined_analysis, combined_analysiswa)
-```
 ```{r test-no-standardization}
 combined %>% 
-  t_test(diff ~ jurisdiction, 
+  t_test(abs_diff ~ jurisdiction, 
          mu = 0, 
          order = c("Denver", "Washington"), 
          alternative = "two-sided", 
@@ -745,12 +789,12 @@ I ran the same test but with a different control city - Minneapolis. I calculate
 
 ```{r mn-test-setup}
 mn_violent_daily <- mn_violent %>% 
-  count(reportedDate)
+  count(date)
 
 period_mn <- mn_violent_daily %>% 
   mutate(time_period = case_when(
-    reportedDate >= as.Date("2019-06-19") & reportedDate < as.Date("2020-05-20") ~ "2019-20",
-    reportedDate >= as.Date("2020-06-19") & reportedDate < as.Date("2021-05-21") ~ "2020-21"
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
@@ -812,7 +856,7 @@ combined_mn %>%
          conf_int = TRUE, conf_level = 0.95)
 ```
 
-Because our p-value of nearly 0 is less than our alpha level of 0.01, I reject the null hypothesis. The data does provide sufficient evidnece to indicate that the true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis. However, when analyzing the confidence interval, it appears that the two-sample t-interval, in fact, concludes the opposite: Minneapolis's average daily proportional increase in violent crime was statistically significantly greater than Denver's average daily proportional increase, given that the confidence interval doesn't include 0 and is entirely negative (the confidence interval indicates the numbers of Denver - Minneapolis, meaning a negative confidence interval indicates that Minneapolis had a greater average daily difference in violent crime). 
+Because our p-value of nearly 0 is less than our alpha level of 0.01, I reject the null hypothesis. The data does provide sufficient evidence to indicate that the true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis. However, when analyzing the confidence interval, it appears that the two-sample t-interval, in fact, concludes the opposite: Minneapolis's average daily proportional increase in violent crime was statistically significantly greater than Denver's average daily proportional increase, given that the confidence interval doesn't include 0 and is entirely negative (the confidence interval indicates the numbers of Denver - Minneapolis, meaning a negative confidence interval indicates that Minneapolis had a greater average daily difference in violent crime). 
 
 This test appears to indicate the possibility of a national trend in violent crime increase or, at least, that other cities that didn't pass QI reform also experienced a daily proportional violent crime increase.
 
@@ -827,9 +871,76 @@ combined_mn %>%
 
 Even in terms of absolute differences, the p-value of 0.0014 is below an alpha level of 0.01, meaning we  reject the null hypothesis. The data does provide significant evidence that Minneapolis' daily average absolute increase in violent crime was not equal to Denver's daily average absolute increase in violent crime between the two periods. Based on the two-sample confidence interval, it appears that Minneapolis had a significantly greater average absolute increase in violent crime compared to Denver's increase.
 
-## Exploratory Data Analysis (CO Property Crimes)
+### Colorado Springs Tests
+
+I ran the same comparison tests using Colorado Springs data.
+
+```{r cspd-violent-comparison-setup}
+cspd_violent_period <- cspd %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+t1 <- cspd_violent_period %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- cspd_violent_period %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Colorado Springs")
+
+combined_mn <- full_join(combined_analysis, combined_analysismn)
+combined_wa <- full_join(combined_analysis, combined_analysiswa)
+```
 
 ```{r}
+combined_mn %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of 0.00271 is less than our preset alpha level of 0.01, we reject the null hypothesis. The data provides sufficient evidence to indicate that the proportional average daily increase in crime in Minneapolis is different from the proportional average daily increase in crime in Colorado Springs between the two time periods. In addition, because the confidence interval is entirely negative and does not include 0, we are 95% confident that the true proportional average daily increase in crime in Minneapolis is greater than the same proportional average daily increase in crime in Colorado Springs.
+```{r}
+combined_wa %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Washington"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of 0.104 is greater than the alpha level of 0.01, we fail to reject the null hypothesis. 
+
+## Exploratory Data Analysis (CO Property Crimes)
+
+```{r prop-crime-wa-plot}
+wa_property %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  labs(title = "Daily Property Crime Incident Trends in Seattle for 5 Years", 
+       x = "Date", 
+       y = "Number of UCR Property Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
+
+```{r prop-crime-denver-plot}
 co_property_totals %>% 
   ggplot(aes(x = date, y = n)) +
   geom_point(alpha = 0.5) + 
@@ -841,19 +952,44 @@ co_property_totals %>%
   geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
              color = "red", alpha = 0.5)
 ```
+Based on this plot, it appears that there was an irregular spike in property crimes that began roughly in February or March of 2020 and continued building until the beginning of 2021 (where it began to fall). This spike also did not appear to be matched in other jurisdictions (Minneapolis and Seattle). 
+
+Strangely, however, the same trend was not found in Colorado Springs, where the number of property crimes may have slightly decreased instead of increasing.
+
+```{r cspd-prop-plot}
+cspd_property %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  ggplot(aes(x = date, y = n)) +
+  geom_point(alpha = 0.5) + 
+  labs(title = "Daily Property Crime Incident Trends in Colorado Springs for 5 Years", 
+       x = "Date", 
+       y = "Number of UCR Property Crimes") + 
+  theme(legend.position = "none") + 
+  geom_smooth() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
 
 
-#### Property Crimes
 
-```{r co-prop-crime-trend}
+### Property Crimes Analysis
+
+I began by running a two-sample t-test on the average proportional daily increase/decrease in property crime between Minneapolis and Denver. 
+
+$H_0: \mu_{Denver} = \mu_{Minneapolis}$. The true mean daily proportional difference in number of property offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is equal to the true mean daily proportional difference in number of property offenses between the two time periods in Minneapolis
+
+$H_A: \mu_Denver} ≠ \mu_{Minneapolis}$. The true mean daily proportional difference in number of property offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of property offenses between the two time periods in Minneapolis
+
+$\alpha$ = 0.01
+
+```{r co-prop-crime-mn-comp-setup}
 period_mn <- mn_property_totals %>% 
   mutate(time_period = case_when(
-    reportedDate >= as.Date("2019-06-19") & reportedDate < as.Date("2020-05-20") ~ "2019-20",
-    reportedDate >= as.Date("2020-06-19") & reportedDate < as.Date("2021-05-21") ~ "2020-21"
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
-names(period_mn)[1] = "date"
 antijoin <- anti_join(period3, period_mn, by = "date")
 
 antijoin <- antijoin %>% 
@@ -904,6 +1040,14 @@ combined_analysismn <- tibble(wat1, wat2) %>%
 combined_mn <- full_join(combined_analysis, combined_analysismn)
 ```
 
+```{r}
+combined_analysismn %>% 
+  summarise(sum = sum(p1))
+combined_analysis %>% 
+  summarise(sum = sum(p1))
+```
+
+
 ```{r mn-property-test}
 combined_mn %>% 
   t_test(diff ~ jurisdiction, 
@@ -912,6 +1056,144 @@ combined_mn %>%
          alternative = "two-sided", 
          conf_int = TRUE, conf_level = 0.95)
 ```
+
+Because our p-value of nearly 0 is lower than our preset alpha level of 0.01, we reject the null hypothesis. The data provides sufficient evidence to indicate that the true mean daily proportional difference in number of property offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO was not equal to the true mean daily proportional difference in number of property offenses between the two time periods in Minneapolis. In addition, we are 95% confident that the true average daily proportional increase in property crime from June 2019 to May 2020 in Denver to June 2020 to May 2021 in Denver is between 0.00122 to 0.00151 greater than the true average daily proportional increase in property crime between the two periods in Minneapolis. In other words, we are 95% confident that the true average daily increase in property crime in Denver is between 32.096 to 39.786 property offenses greater than the true average daily increase in property crime in Minneapolis, adjusting for proportionate differences between the two.
+
+```{r mn-property-test}
+combined_mn %>% 
+  t_test(abs_diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Similarly, the two-sample t-test on absolute differences indicates that Denver had a greater absolute increase in daily average property crimes compared to Minneapolis by a significant margin (31.149 to 37.876 property offenses/day).
+
+I ran the same test with Seattle data.
+
+```{r}
+period_wa <- wa_property %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+wat1 <- period_wa %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- period_wa %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Seattle")
+
+combined_wa <- full_join(combined_analysis, combined_analysiswa)
+```
+
+```{r}
+combined_wa %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Seattle"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Similarly, the test indicated an extremely low p-value of nearly 0 and a confidence interval with high positive numbers, indicating that Denver's average daily proportional increase in property crime was well above Seattle's increase in property crime between the two periods. Thus, lurking variables shared between Seattle and Denver or Minneapolis and Denver likely do not explain the rapid increase in property crimes between the two periods.
+
+#### Colorado Springs Property Crime Tests
+
+Colorado Springs is another populous jurisdiction in Colorado and was also influenced by the elimination of qualified immunity through legislation. If the same trend can be found in Colorado Springs, the data would provide strong evidence that a factor specific to populous cities in Colorado as a whole may be influencing the spike in property crime rates.
+
+```{r cspd-prop-crime-mn}
+cspd_property_period <- cspd %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-20") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-05-21") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+t1 <- cspd_property_period %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- cspd_property_period %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Colorado Springs")
+
+combined_mn <- full_join(combined_analysis, combined_analysismn)
+combined_wa <- full_join(combined_analysis, combined_analysiswa)
+
+```
+
+```{r test-cspd-mn-prop-diff}
+combined_mn %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of 0.209 is far above a reasonable alpha level of 0.01, we fail to reject the null hypothesis. The data does not provide sufficient evidence to indicate that the average proportional daily increase in property crime in Minneapolis from the June 2019 to May 2020 time period to June 2020 to May 2021 time period was significantly different from the average proportional daily increase in property crime in Colorado Springs over the same time period. 
+
+```{r test-cspd-mn-abs-diff}
+combined_mn %>% 
+  t_test(abs_diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Minneapolis"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+When comparing absolute differences, the confidence interval for the absolute average daily differences in crime is much more reasonable compared to the confdience interval comparing Denver with Minneapolis (-1.366 property crimes to 4.390 property crimes).
+
+
+```{r test-cspd-wa-prop-diff}
+combined_wa %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Seattle"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+Because the p-value of nearly 0 is less than a reasonable alpha level of 0.01, we reject the null hypothesis. The data provides sufficient evidence to indicate that the average daily proportional difference in property crime between the two time periods for Seattle is different from the average daily proportional difference in property crime between the two time periods for Colorado Springs. However, because the confidence interval is all negative, the data provides evidence at a 95% level that Seattle's average daily proportional increase in property crime was significantly greater than the average daily proportional increase in property crime in Colorado Springs.
+
+```{r test-cspd-wa-abs-diff}
+combined_wa %>% 
+  t_test(abs_diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Seattle"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+In terms of absolute differences, we are 95% confident that the true average daily number of property crimes increased by between 7.026 to 13.301 crimes more in Seattle than the increase between the two time periods in Colorado Springs.
+
+## Officer Retention
+
+### CO EDA
+
+## Officer-Involved Injuries
+
+
 
 ## Civilian Shootings
 
