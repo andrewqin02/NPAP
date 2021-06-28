@@ -1,0 +1,272 @@
+---
+title: "FBI Database Compilation"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Setup
+
+```{r load-packages, message = FALSE}
+library(tidyverse)
+library(knitr)
+library(rvest)
+library(lubridate)
+library(infer)
+library(readxl)
+set.seed(460)
+```
+
+```{r load-data, message = FALSE}
+tx10 <- read_csv("fbi/NIBRS_OFFENSE.csv")
+tx102 <- read_csv("fbi/NIBRS_incident.csv")
+```
+
+```{r, message = FALSE}
+tx10_agency <- read_csv("fbi/cde_agencies.csv")
+tx_agency <- read_csv("fbi/agencies.csv")
+offense_type <- read_csv("fbi/NIBRS_OFFENSE_TYPE.csv")
+```
+
+```{r, message = FALSE}
+test <- read_csv("fbi/table-6.csv")
+```
+
+```{r}
+names(test)[1] <- "msa_name"
+test <- test %>% 
+  slice(1:2261) %>% 
+  mutate(year = "2011") %>% 
+  fill(msa_name, .direction = "down")
+```
+
+## Database Construction
+
+```{r}
+names(tx10) <- tolower(names(tx10))
+names(tx102) <- tolower(names(tx102))
+tx10 <- tx10 %>% 
+  select(incident_id, offense_type_id) 
+tx_combined <- full_join(tx10, tx102, by = "incident_id")
+
+```
+```{r}
+tx_combined <- tx_combined %>% 
+  mutate(incident_date = dmy(incident_date)) %>% 
+  mutate(submission_date = dmy(submission_date)) %>% 
+  mutate(cleared_except_date = dmy(cleared_except_date))
+```
+
+
+
+```{r}
+tx <- full_join(tx_combined, tx)
+```
+
+```{r}
+names(tx_agency) <- tolower(names(tx_agency))
+tx_agency <- tx_agency %>% 
+  select(agency_id, msa_name, pub_agency_name, state_name, population_group_desc, 
+         county_name)
+tx <- full_join(tx, tx_agency, by = "agency_id")
+```
+
+```{r}
+names(offense_type) <- tolower(names(offense_type))
+tx <- full_join(tx, offense_type, by = "offense_type_id")
+```
+
+```{r save-data}
+# write_csv(tx, "fbi/tx_raw.csv")
+```
+
+
+## Database Wrangling
+
+```{r}
+tx <- tx %>% 
+  mutate(violent = ifelse(offense_name == "Aggravated Assault" | 
+           offense_name == "Murder & Nonnegligent Manslaughter" | 
+           offense_name == "Rape" | 
+           offense_name == "Robbery" |
+           offense_name == "Sexual Assault With An Object" | 
+             offense_name == "Fondling" | 
+             offense_name == "Sodomy", 1, 0)) %>% 
+  mutate(property = ifelse(offense_name == "All Other Larceny" | 
+                             offense_name == "Arson" | 
+                             offense_name == "Burglary/Breaking & Entering" |
+                             offense_name == "Motor Vehicle Theft" | 
+                             offense_name == "Shoplifting" | 
+                             offense_name == "Stolen Property Offenses" | 
+                             offense_name == "Pocket-picking" |
+                             offense_name == "Theft From Building" | 
+                             offense_name == "Theft From Coin-Operated Machine or Device" | 
+                             offense_name == "Theft From Motor Vehicle" | 
+                             offense_name == "Theft of Motor Vehicle Parts or Accessories" | 
+                             offense_name == "Destruction/Damage/Vandalism of Property" | 
+                             offense_name == "Purse-snatching", 1, 0))
+
+tx_violent_numbers <- tx %>% 
+  filter(msa_name != "Non-MSA") %>% 
+  filter(is.na(msa_name) == FALSE) %>% 
+  filter(violent == 1) %>%  
+  group_by(msa_name) %>% 
+  count(incident_date)
+
+tx_violent_numbers <- tx_violent_numbers %>% 
+  mutate(year = case_when(
+    incident_date <= as.Date("2010-12-31") & incident_date >= as.Date("2010-01-01") ~ "2010", 
+    incident_date >= as.Date("2011-01-01") & incident_date <= as.Date("2011-12-31") ~ "2011", 
+    incident_date <= as.Date("2012-12-31") & incident_date >= as.Date("2012-01-01") ~ "2012", 
+    incident_date <= as.Date("2013-12-31") & incident_date >= as.Date("2013-01-01") ~ "2013", 
+    incident_date <= as.Date("2014-12-31") & incident_date >= as.Date("2014-01-01") ~ "2014", 
+    incident_date <= as.Date("2015-12-31") & incident_date >= as.Date("2015-01-01") ~ "2015", 
+    incident_date <= as.Date("2016-12-31") & incident_date >= as.Date("2016-01-01") ~ "2016", 
+    incident_date <= as.Date("2017-12-31") & incident_date >= as.Date("2017-01-01") ~ "2017", 
+    incident_date <= as.Date("2018-12-31") & incident_date >= as.Date("2018-01-01") ~ "2018", 
+    incident_date <= as.Date("2019-12-31") & incident_date >= as.Date("2019-01-01") ~ "2019"))
+
+tx_property_numbers <- tx %>% 
+  filter(msa_name != "Non-MSA") %>% 
+  filter(is.na(msa_name) == FALSE) %>% 
+  filter(property == 1) %>%  
+  group_by(msa_name) %>% 
+  count(incident_date)
+
+```
+
+
+```{r}
+add_date <- tx_violent_numbers %>% 
+  ungroup(msa_name) %>% 
+  filter(msa_name == "Dallas-Fort Worth-Arlington, TX") %>% 
+  select(incident_date)
+
+add_date1 <- add_date %>% 
+  mutate(msa_name = "Abilene, TX")
+
+add_date2 <- add_date %>% 
+  mutate(msa_name = "Amarillo, TX")
+
+add_date <- full_join(add_date1, add_date2)
+
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Austin-Round Rock-Georgetown, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Beaumont-Port Arthur, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Brownsville-Harlingen, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "College Station-Bryan, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Corpus Christi, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Dallas-Fort Worth-Arlington, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "El Paso, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Houston-The Woodlands-Sugar Land, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Killeen-Temple, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Laredo, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Longview, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Longview, TX; Tyler, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Lubbock, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "McAllen-Edinburg-Mission, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "San Angelo, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "San Antonio-New Braunfels, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Sherman-Denison, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Texarkana, TX-AR")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Tyler, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Victoria, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Waco, TX")
+add_date <- full_join(add_date, add_date2)
+add_date2 <- add_date1 %>% 
+  mutate(msa_name = "Wichita Falls, TX")
+add_date <- full_join(add_date, add_date2)
+
+add_msa <- tx_violent_numbers %>% 
+  distinct(msa_name)
+
+add_msa <- add_msa %>% 
+  slice(rep(1:n(), each = 3652)) 
+
+```
+
+```{r}
+antijoin <- anti_join(add_date, tx_violent_numbers)
+antijoin2 <- anti_join(add_date, tx_property_numbers)
+antijoin <- antijoin %>% 
+  mutate(n = 0)
+antijoin2 <- antijoin2 %>% 
+  mutate(n = 0)
+tx_violent_numbers <- full_join(tx_violent_numbers, antijoin)
+tx_violent_numbers <- tx_violent_numbers %>% 
+  mutate(year = case_when(
+    incident_date <= as.Date("2010-12-31") & incident_date >= as.Date("2010-01-01") ~ "2010", 
+    incident_date >= as.Date("2011-01-01") & incident_date <= as.Date("2011-12-31") ~ "2011", 
+    incident_date <= as.Date("2012-12-31") & incident_date >= as.Date("2012-01-01") ~ "2012", 
+    incident_date <= as.Date("2013-12-31") & incident_date >= as.Date("2013-01-01") ~ "2013", 
+    incident_date <= as.Date("2014-12-31") & incident_date >= as.Date("2014-01-01") ~ "2014", 
+    incident_date <= as.Date("2015-12-31") & incident_date >= as.Date("2015-01-01") ~ "2015", 
+    incident_date <= as.Date("2016-12-31") & incident_date >= as.Date("2016-01-01") ~ "2016", 
+    incident_date <= as.Date("2017-12-31") & incident_date >= as.Date("2017-01-01") ~ "2017", 
+    incident_date <= as.Date("2018-12-31") & incident_date >= as.Date("2018-01-01") ~ "2018", 
+    incident_date <= as.Date("2019-12-31") & incident_date >= as.Date("2019-01-01") ~ "2019"))
+tx_property_numbers <- full_join(tx_property_numbers, antijoin)
+tx_property_numbers <- tx_property_numbers %>% 
+  mutate(year = case_when(
+    incident_date <= as.Date("2010-12-31") & incident_date >= as.Date("2010-01-01") ~ "2010", 
+    incident_date >= as.Date("2011-01-01") & incident_date <= as.Date("2011-12-31") ~ "2011", 
+    incident_date <= as.Date("2012-12-31") & incident_date >= as.Date("2012-01-01") ~ "2012", 
+    incident_date <= as.Date("2013-12-31") & incident_date >= as.Date("2013-01-01") ~ "2013", 
+    incident_date <= as.Date("2014-12-31") & incident_date >= as.Date("2014-01-01") ~ "2014", 
+    incident_date <= as.Date("2015-12-31") & incident_date >= as.Date("2015-01-01") ~ "2015", 
+    incident_date <= as.Date("2016-12-31") & incident_date >= as.Date("2016-01-01") ~ "2016", 
+    incident_date <= as.Date("2017-12-31") & incident_date >= as.Date("2017-01-01") ~ "2017", 
+    incident_date <= as.Date("2018-12-31") & incident_date >= as.Date("2018-01-01") ~ "2018", 
+    incident_date <= as.Date("2019-12-31") & incident_date >= as.Date("2019-01-01") ~ "2019"))
+```
+
+```{r}
+tx_violent_numbers %>% 
+  group_by(msa_name, year) %>% 
+  summarise(year_mean = mean(n))
+```
+
+
+
