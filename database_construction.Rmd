@@ -16,92 +16,89 @@ library(rvest)
 library(lubridate)
 library(infer)
 library(readxl)
+library(tm)
 set.seed(460)
 ```
 
-```{r, message = FALSE}
-crime_11 <- read_csv("fbi/2011_crime.csv")
-crime_12 <- read_csv("fbi/2012_crime.csv")
-crime_13 <- read_csv("fbi/2013_crime.csv")
-crime_14 <- read_csv("fbi/2014_crime.csv")
-crime_15 <- read_csv("fbi/2015_crime.csv")
-crime_16 <- read_csv("fbi/2016_crime.csv")
-crime_17 <- read_csv("fbi/2017_crime.csv")
-crime_18 <- read_csv("fbi/2018_crime.csv")
-crime_19 <- read_csv("fbi/2019_crime.csv")
+## Load Crime Data
+
+```{r crime-data, message = FALSE}
+crime_11 <- read_csv("fbi/2011_crimes_bycity.csv")
+crime_12 <- read_csv("fbi/2012_crimes_bycity.csv")
+crime_13 <- read_csv("fbi/2013_crimes_bycity.csv")
+crime_14 <- read_csv("fbi/2014_crimes_bycity.csv")
+crime_15 <- read_csv("fbi/2015_crimes_bycity.csv")
+crime_16 <- read_csv("fbi/2016_crimes_bycity.csv")
+crime_17 <- read_csv("fbi/2017_crimes_bycity.csv")
+crime_18 <- read_csv("fbi/2018_crimes_bycity.csv")
+crime_19 <- read_csv("fbi/2019_crimes_bycity.csv")
 
 ```
 
-## Basic Wrangling
+## Crime Data Wrangling
 
 ```{r slice-footnotes}
 crime_11 <- crime_11 %>% 
-  slice(1:2261)
+  slice(1:9314)
 crime_12 <- crime_12 %>% 
-  slice(1:2311)
+  slice(1:9491)
 crime_13 <- crime_13 %>% 
-  slice(1:2385)
+  slice(1:9292)
 crime_14 <- crime_14 %>% 
-  slice(1:2237)
+  slice(1:9347)
 crime_15 <- crime_15 %>% 
-  slice(1:2227)
+  slice(1:9395)
 crime_16 <- crime_16 %>% 
-  slice(1:2271)
+  slice(1:9579)
 crime_17 <- crime_17 %>% 
-  slice(1:2331)
+  slice(1:9579)
 crime_18 <- crime_18 %>% 
-  slice(1:2207)
+  slice(1:9252)
 crime_19 <- crime_19 %>% 
-  slice(1:1933)
+  slice(1:8105)
 
 ```
 
 
 ```{r fill-msa-names}
-names(crime_11)[1] <- "msa_name"
 crime_11 <- crime_11 %>% 
   mutate(year = "2011") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_12)[1] <- "msa_name"
+crime_11$State <- crime_11$State %>% 
+  str_replace("ALABAMA2", "ALABAMA")
+
 crime_12 <- crime_12 %>% 
   mutate(year = "2012") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_13)[1] <- "msa_name"
 crime_13 <- crime_13 %>% 
   mutate(year = "2013") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_14)[1] <- "msa_name"
 crime_14 <- crime_14 %>% 
   mutate(year = "2014") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_15)[1] <- "msa_name"
 crime_15 <- crime_15 %>% 
   mutate(year = "2015") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_16)[1] <- "msa_name"
 crime_16 <- crime_16 %>% 
   mutate(year = "2016") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_17)[1] <- "msa_name"
 crime_17 <- crime_17 %>% 
   mutate(year = "2017") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_18)[1] <- "msa_name"
 crime_18 <- crime_18 %>% 
   mutate(year = "2018") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 
-names(crime_19)[1] <- "msa_name"
 crime_19 <- crime_19 %>% 
   mutate(year = "2019") %>% 
-  fill(msa_name, .direction = "down")
+  fill(State, .direction = "down")
 ```
 
 ```{r combine-data}
@@ -116,23 +113,71 @@ all_crimes <- full_join(all_crimes, crime_19) #can solve forcible rape/rape1 pro
 ```
 
 ```{r wrangle-all-crimes}
-names(all_crimes)[2] <- "cities"
+names(all_crimes)[1] <- "state"
+names(all_crimes)[2] <- "city"
+names(all_crimes)[3] <- "population"
 names(all_crimes)[4] <- "violent_crime"
-names(all_crimes)[9] = "property_crime"
-all_crimes <- all_crimes %>% 
-  filter(is.na(cities) == TRUE | cities == "Rate per 100,000 inhabitants") %>% 
-  fill(Population, .direction = "down") %>% 
-  filter(is.na(cities) == FALSE) %>% 
-  select(msa_name, Population, violent_crime, property_crime, year)
+names(all_crimes)[9] <- "property_crime"
+all_crimes <- all_crimes %>%
+  select(state, city, population, violent_crime, property_crime, year) %>% 
+  mutate(violent_crime_rate = violent_crime / population * 100000) %>% 
+  mutate(property_crime_rate = property_crime / population * 100000)
 
-all_crimes$msa_name <- str_split(all_crimes$msa_name, " M.S.A.", 
-                                 simplify = TRUE)[,1]
-  
+all_crimes$state <- removeNumbers(all_crimes$state)
+all_crimes$city <- removeNumbers(all_crimes$city)
+all_crimes$state <- str_remove(all_crimes$state, ", ")
+all_crimes$city <- str_remove(all_crimes$city, ", ")
+all_crimes$city <- str_remove(all_crimes$city, ",")
+all_crimes$state <- str_to_title(all_crimes$state)
 ```
 
+
+## Load Census Data
+
+```{r load-census-data}
+social_acs_2011 <- read_csv("census/2011_social_acs")
+economic_acs_2011 <- read_csv("census/2011_economic_acs.csv")
+housing_acs_2011 <- read_csv("census/2011_housing_acs.csv") 
+demographic_acs_2011 <- read_csv("census/2011_demographic_acs.csv")
+social_acs_2012 <- read_csv("census/2012_social_acs")
+economic_acs_2012 <- read_csv("census/2012_economic_acs.csv")
+housing_acs_2012 <- read_csv("census/2012_housing_acs.csv") 
+demographic_acs_2012 <- read_csv("census/2012_demographic_acs.csv")
+social_acs_2013 <- read_csv("census/2013_social_acs")
+economic_acs_2013 <- read_csv("census/2013_economic_acs.csv")
+housing_acs_2013 <- read_csv("census/2013_housing_acs.csv") 
+demographic_acs_2013 <- read_csv("census/2013_demographic_acs.csv")
+social_acs_2014 <- read_csv("census/2014_social_acs")
+economic_acs_2014 <- read_csv("census/2014_economic_acs.csv")
+housing_acs_2014 <- read_csv("census/2014_housing_acs.csv") 
+demographic_acs_2014 <- read_csv("census/2014_demographic_acs.csv")
+social_acs_2015 <- read_csv("census/2015_social_acs")
+economic_acs_2015 <- read_csv("census/2015_economic_acs.csv")
+housing_acs_2015 <- read_csv("census/2015_housing_acs.csv") 
+demographic_acs_2015 <- read_csv("census/2015_demographic_acs.csv")
+social_acs_2016 <- read_csv("census/2016_social_acs")
+economic_acs_2016 <- read_csv("census/2016_economic_acs.csv")
+housing_acs_2016 <- read_csv("census/2016_housing_acs.csv") 
+demographic_acs_2016 <- read_csv("census/2016_demographic_acs.csv")
+social_acs_2017 <- read_csv("census/2017_social_acs")
+economic_acs_2017 <- read_csv("census/2017_economic_acs.csv")
+housing_acs_2017 <- read_csv("census/2017_housing_acs.csv") 
+demographic_acs_2017 <- read_csv("census/2017_demographic_acs.csv")
+social_acs_2018 <- read_csv("census/2018_social_acs")
+economic_acs_2018 <- read_csv("census/2018_economic_acs.csv")
+housing_acs_2018 <- read_csv("census/2018_housing_acs.csv") 
+demographic_acs_2018 <- read_csv("census/2018_demographic_acs.csv")
+social_acs_2019 <- read_csv("census/2019_social_acs")
+economic_acs_2019 <- read_csv("census/2019_economic_acs.csv")
+housing_acs_2019 <- read_csv("census/2019_housing_acs.csv") 
+demographic_acs_2019 <- read_csv("census/2019_demographic_acs.csv")
+```
+
+
 ```{r}
-all_crimes %>% 
-  count(msa_name, sort = TRUE) %>% 
-  filter(msa_name == "Denver-Aurora-Broomfield, CO")
+demographic_acs$NAME %>% 
+  str_replace(" city, ", ", ") %>% 
+  str_replace(" town, ", ", ") %>% 
+  str_replace(" CDP, ", ", ") 
 ```
 
