@@ -424,20 +424,61 @@ full_acs <- full_acs %>%
          received_snap = as.numeric(received_snap), 
          child_poverty = as.numeric(child_poverty), 
          owner_occupied = as.numeric(owner_occupied)) 
+full_acs$NAME <- gsub("\\s*\\([^\\)]+\\)","",as.character(full_acs$NAME)) # Code taken from https://stackoverflow.com/questions/24173194/remove-parentheses-and-text-within-from-strings-in-r to remove parentheses
 full_acs$NAME <- str_replace(full_acs$NAME, " city, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " municipality, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " village, ", ", ")
 full_acs$NAME <- str_replace(full_acs$NAME, " town, ", ", ")
 full_acs$NAME <- str_replace(full_acs$NAME, " CDP, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, "San Buenaventura", "Ventura")
+full_acs$NAME <- str_replace(full_acs$NAME, "Washington, District of Columbia", 
+                             "District Of Columbia, Washington")
+full_acs$NAME <- str_replace(full_acs$NAME, "Savannah, Georgia", 
+                             "Savannah-Chatham Metropolitan, Georgia")
+full_acs$NAME <- str_remove(full_acs$NAME, "-Davidson metropolitan government")
+full_acs$NAME <- str_remove(full_acs$NAME, "-Fayette urban county")
+full_acs$NAME <- str_replace(full_acs$NAME, "/Jefferson County metro government", " Metro")
+
+
 full_acs$city <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,1]
 full_acs$state <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,2]
 
 ```
 
 ```{r left-join}
+all_crimes$city <- str_replace(all_crimes$city, "Las Vegas Metropolitan Police Department", 
+                               "Las Vegas")
+all_crimes$city <- str_replace(all_crimes$city, "Charlotte-Mecklenburg", "Charlotte")
+
 full_database <- left_join(all_crimes, full_acs, by = c("city", "state", "year"))
 ```
 
 ```{r save-work}
-write_csv(full_database, "data/crime_database.csv")
+write_csv(full_database, "data/crime_database.csv") #finished database creation
 ```
 
+## Wrangling Completed Database
+
+```{r}
+reduced_database %>% 
+  filter(is.na(NAME) == TRUE)
+```
+
+
+```{r read-full}
+full_database <- read_csv("data/crime_database.csv")
+```
+
+```{r fix-damages}
+reduced_database <- full_database %>% 
+  filter(population >= 50000) 
+
+counts <- reduced_database %>% 
+  count(city, state, sort = TRUE)
+```
+
+```{r}
+reduced_database %>% 
+  filter(city == "Burbank", state == "California")
+```
 
