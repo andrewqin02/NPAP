@@ -172,26 +172,7 @@ economic_acs_2019 <- read_csv("census/2019_economic_acs.csv")
 housing_acs_2019 <- read_csv("census/2019_housing_acs.csv") 
 demographic_acs_2019 <- read_csv("census/2019_demographic_acs.csv")
 ```
-
-social_acs <- social_acs %>% 
-  select(NAME, DP02_0011PE, DP02_0067PE, DP02_0080PE)
-economic_acs <- economic_acs %>% 
-  select(NAME, DP03_0049PE, DP03_0009PE, DP03_0062E, DP03_0074PE)
-housing_acs <- housing_acs %>% 
-  select(NAME, DP04_0046PE, )
-demographic_acs <- demographic_acs %>% 
-  select(NAME, DP05_0019PE, )
   
-```{r}
-social_acs_2019 %>% 
-  select(NAME, DP02_0011PE, DP02_0067PE, DP02_0080PE) 
-economic_acs_2019 %>% 
-    select(NAME, DP03_0049PE, DP03_0009PE, DP03_0062E, DP03_0074PE, DP03_0129PE) 
-housing_acs_2019 %>% 
-  select(NAME, DP04_0046PE)
-demographic_acs_2019 %>% 
-  select(NAME, DP05_0021PE, DP05_0077PE)
-```
 
 
 ```{r}
@@ -341,29 +322,122 @@ social_acs_2019 <- social_acs_2019 %>%
 names(social_acs_2019)[2] = "DP02_0008PE"
 names(social_acs_2019)[3] = "DP02_0066PE"
 names(social_acs_2019)[4] = "DP02_0079PE"
-economic_acs_2018 <- economic_acs_2018 %>% 
+economic_acs_2019 <- economic_acs_2019 %>% 
   select(NAME, DP03_0049PE, DP03_0009PE, DP03_0062E, DP03_0074PE, DP03_0129PE) %>% 
-  mutate(year = "2018") %>% 
+  mutate(year = "2019") %>% 
   slice(-1)
-housing_acs_2018 <- housing_acs_2018 %>% 
+housing_acs_2019 <- housing_acs_2019 %>% 
   select(NAME, DP04_0046PE) %>% 
-  mutate(year = "2018") %>% 
+  mutate(year = "2019") %>% 
   slice(-1)
-names(housing_acs_2018)[2] <- "DP04_0045PE"
-demographic_acs_2018 <- demographic_acs_2018 %>% 
+names(housing_acs_2019)[2] <- "DP04_0045PE"
+demographic_acs_2019 <- demographic_acs_2019 %>% 
   select(NAME, DP05_0021PE, DP05_0077PE) %>% 
-  mutate(year = "2018") %>% 
+  mutate(year = "2019") %>% 
   slice(-1)
-names(demographic_acs_2018)[2] = "DP05_0018PE"
-names(demographic_acs_2018)[3] = "DP05_0072PE"
+names(demographic_acs_2019)[2] = "DP05_0018PE"
+names(demographic_acs_2019)[3] = "DP05_0072PE"
+
+```
+
+```{r join-datasets, message = FALSE}
+social_acs <- full_join(social_acs_2011, social_acs_2012)
+social_acs <- full_join(social_acs, social_acs_2013)
+social_acs <- full_join(social_acs, social_acs_2014)
+social_acs <- full_join(social_acs, social_acs_2015)
+social_acs <- full_join(social_acs, social_acs_2016)
+social_acs <- full_join(social_acs, social_acs_2017)
+social_acs <- full_join(social_acs, social_acs_2018)
+social_acs <- full_join(social_acs, social_acs_2019)
+economic_acs <- full_join(economic_acs_2011, economic_acs_2012)
+economic_acs <- full_join(economic_acs, economic_acs_2013)
+economic_acs <- full_join(economic_acs, economic_acs_2014)
+economic_acs <- full_join(economic_acs, economic_acs_2015)
+economic_acs <- full_join(economic_acs, economic_acs_2016)
+economic_acs <- full_join(economic_acs, economic_acs_2017)
+economic_acs <- full_join(economic_acs, economic_acs_2018)
+economic_acs <- full_join(economic_acs, economic_acs_2019)
+demographic_acs <- full_join(demographic_acs_2011, demographic_acs_2012)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2013)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2014)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2015)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2016)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2017)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2018)
+demographic_acs <- full_join(demographic_acs, demographic_acs_2019)
+housing_acs <- full_join(housing_acs_2011, housing_acs_2012)
+housing_acs <- full_join(housing_acs, housing_acs_2013)
+housing_acs <- full_join(housing_acs, housing_acs_2014)
+housing_acs <- full_join(housing_acs, housing_acs_2015)
+housing_acs <- full_join(housing_acs, housing_acs_2016)
+housing_acs <- full_join(housing_acs, housing_acs_2017)
+housing_acs <- full_join(housing_acs, housing_acs_2018)
+housing_acs <- full_join(housing_acs, housing_acs_2019)
+
+```
+
+```{r change-names}
+names(social_acs)[2] <- "female_household"
+names(social_acs)[3] <- "hs"
+names(social_acs)[4] <- "res_stability"
+names(demographic_acs)[2] <- "over_18"
+names(demographic_acs)[3] <- "white_percent"
+names(economic_acs)[2] <- "self_employed"
+names(economic_acs)[3] <- "unemployment"
+names(economic_acs)[4] <- "median_income"
+names(economic_acs)[5] <- "received_snap"
+names(economic_acs)[6] <- "child_poverty"
+names(housing_acs)[2] <- "owner_occupied"
+
+social_acs <- social_acs %>% 
+  slice(-1)
+
+demographic_acs <- demographic_acs %>% 
+  slice(-1)
+
+economic_acs <- economic_acs %>% 
+  slice(-1)
+
+housing_acs <- housing_acs %>% 
+  slice(-1)
 
 ```
 
 
-```{r}
-demographic_acs$NAME %>% 
-  str_replace(" city, ", ", ") %>% 
-  str_replace(" town, ", ", ") %>% 
-  str_replace(" CDP, ", ", ") 
+```{r combine-acs}
+full_acs <- full_join(social_acs, demographic_acs, by = c("NAME", "year"), include = TRUE)
+full_acs <- full_join(full_acs, economic_acs, by = c("NAME", "year"), include - TRUE) 
+full_acs <- full_join(full_acs, housing_acs, by = c("NAME", "year"), include = TRUE)
 ```
+
+
+```{r full-acs}
+full_acs <- full_acs %>% 
+  mutate(female_household = as.numeric(female_household), 
+         hs = as.numeric(hs), 
+         res_stability = as.numeric(res_stability), 
+         over_18 = as.numeric(over_18), 
+         white_percent = as.numeric(white_percent), 
+         self_employed = as.numeric(self_employed), 
+         unemployment = as.numeric(unemployment), 
+         median_income = as.numeric(median_income), 
+         received_snap = as.numeric(received_snap), 
+         child_poverty = as.numeric(child_poverty), 
+         owner_occupied = as.numeric(owner_occupied)) 
+full_acs$NAME <- str_replace(full_acs$NAME, " city, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " town, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " CDP, ", ", ")
+full_acs$city <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,1]
+full_acs$state <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,2]
+
+```
+
+```{r left-join}
+full_database <- left_join(all_crimes, full_acs, by = c("city", "state", "year"))
+```
+
+```{r save-work}
+write_csv(full_database, "data/crime_database.csv")
+```
+
 

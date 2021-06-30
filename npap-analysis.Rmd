@@ -30,6 +30,8 @@ mn_offenses19 <- read_csv("data/Police_Incidents_2019.csv")
 mn_offenses20 <- read_csv("data/Police_Incidents_2020.csv")
 mn_offenses21 <- read_csv("data/Police_Incidents_2021.csv")
 cspd <- read_csv("data/Crime_Level_Data.csv")
+seattle_uof <- read_csv("data/Use_Of_Force.csv")
+mn_uof <- read_csv("data/Police_Use_of_Force.csv")
 
 # shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
