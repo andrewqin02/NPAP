@@ -17,6 +17,7 @@ library(lubridate)
 library(infer)
 library(readxl)
 library(tm)
+library(Synth)
 set.seed(460)
 ```
 
@@ -423,7 +424,8 @@ full_acs <- full_acs %>%
          median_income = as.numeric(median_income), 
          received_snap = as.numeric(received_snap), 
          child_poverty = as.numeric(child_poverty), 
-         owner_occupied = as.numeric(owner_occupied)) 
+         owner_occupied = as.numeric(owner_occupied), 
+         year = as.numeric(year)) 
 full_acs$NAME <- gsub("\\s*\\([^\\)]+\\)","",as.character(full_acs$NAME)) # Code taken from https://stackoverflow.com/questions/24173194/remove-parentheses-and-text-within-from-strings-in-r to remove parentheses
 full_acs$NAME <- str_replace(full_acs$NAME, " city, ", ", ")
 full_acs$NAME <- str_replace(full_acs$NAME, " municipality, ", ", ")
@@ -432,17 +434,17 @@ full_acs$NAME <- str_replace(full_acs$NAME, " town, ", ", ")
 full_acs$NAME <- str_replace(full_acs$NAME, " CDP, ", ", ")
 full_acs$NAME <- str_replace(full_acs$NAME, "San Buenaventura", "Ventura")
 full_acs$NAME <- str_replace(full_acs$NAME, "Washington, District of Columbia", 
-                             "District Of Columbia, Washington")
+                             "Washington, District Of Columbia")
 full_acs$NAME <- str_replace(full_acs$NAME, "Savannah, Georgia", 
                              "Savannah-Chatham Metropolitan, Georgia")
 full_acs$NAME <- str_remove(full_acs$NAME, "-Davidson metropolitan government")
 full_acs$NAME <- str_remove(full_acs$NAME, "-Fayette urban county")
 full_acs$NAME <- str_replace(full_acs$NAME, "/Jefferson County metro government", " Metro")
-
-
 full_acs$city <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,1]
 full_acs$state <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,2]
 
+full_acs_modified <- full_acs
+full_acs_modified$city <- paste0(full_acs_modified$city, " Township")
 ```
 
 ```{r left-join}
@@ -459,26 +461,103 @@ write_csv(full_database, "data/crime_database.csv") #finished database creation
 
 ## Wrangling Completed Database
 
-```{r}
-reduced_database %>% 
-  filter(is.na(NAME) == TRUE)
-```
-
-
 ```{r read-full}
 full_database <- read_csv("data/crime_database.csv")
 ```
 
 ```{r fix-damages}
 reduced_database <- full_database %>% 
-  filter(population >= 50000) 
+  filter(population >= 50000) %>% 
+  filter(is.na(NAME) == FALSE)
+```
 
-counts <- reduced_database %>% 
-  count(city, state, sort = TRUE)
+```{r remove-duplicates, message = FAL}
+for_removal <- reduced_database %>% 
+  filter(NAME == "Burbank, California") %>% 
+  filter(white_percent < 40)
+
+for_removal2 <- reduced_database %>% 
+  filter(NAME == "Mesquite, Texas") %>% 
+  filter(white_percent == 0.0)
+for_removal <- full_join(for_removal, for_removal2)
+
+for_removal2 <- reduced_database %>% 
+  filter(NAME == "Mountain View, California") %>% 
+  filter(white_percent > 48)
+for_removal <- full_join(for_removal, for_removal2)
+
+for_removal2 <- reduced_database %>% 
+  filter(NAME == "Plantation, Florida") %>% 
+  filter(white_percent > 90)
+for_removal <- full_join(for_removal, for_removal2)
+
+reduced_database <- anti_join(reduced_database, for_removal)
+```
+
+
+## Synthetic Control Modelling Experimentation
+
+```{r}
+reduced_database_violent <- reduced_database %>% 
+  filter(is.na(violent_crime_rate) == FALSE & is.na(female_household) == FALSE & 
+         is.na(hs) == FALSE & is.na(res_stability) == FALSE & is.na(over_18) == FALSE & 
+         is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE)
+counts <- reduced_database_violent %>% 
+  count(NAME, sort = TRUE)
+remove_missing <- counts %>% 
+  filter (n < 9)
+reduced_database2 <- anti_join(reduced_database_violent, remove_missing)
+
+```
+
+
+
+```{r}
+add_numbers <- reduced_database2 %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
+  distinct(NAME) 
+
+add_numbers <- add_numbers %>% 
+  mutate(id = 1:nrow(add_numbers))
+
+reduced_database2 <- full_join(reduced_database2, add_numbers, by = "NAME")
+```
+
+```{r remove-non-denver-colorado}
+no_colorado1 <- reduced_database2 %>% 
+  mutate(id = as.numeric(id)) %>% 
+  filter(NAME == "Denver, Colorado" | state != "Colorado")
+no_colorado1 <- no_colorado1 %>% 
+  mutate(year = as.numeric(year)) 
+no_colorado1 <- as.data.frame(no_colorado1)
+```
+
+
+```{r}
+prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 186, controls.identifier = c(1:184, 187:514), 
+         time.predictors.prior = 2011:2019, time.optimize.ssr = 2014:2019, 
+         time.plot = 2011:2019)
+         
 ```
 
 ```{r}
-reduced_database %>% 
-  filter(city == "Burbank", state == "California")
+synth_complete <- synth(prep)
+```
+
+```{r}
+path.plot(synth.res = synth_complete,
+dataprep.res = prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
 ```
 
