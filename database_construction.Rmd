@@ -534,6 +534,7 @@ no_colorado1 <- as.data.frame(no_colorado1)
 ```
 
 
+
 ```{r}
 prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
                                                 "hs", "res_stability", "over_18", 
@@ -693,3 +694,138 @@ weights_denver_prop <- weights_denver_prop %>%
 266 - Champaign, IL
 326 - Ann Arbor, MI
 
+Colorado Springs:
+
+
+```{r cspd-prep}
+cspd_prop_prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 185, controls.identifier = c(1:184, 187:507), 
+         time.predictors.prior = 2011:2019, time.optimize.ssr = 2016:2019, 
+         time.plot = 2011:2019)
+         
+```
+
+
+
+
+```{r}
+synth_cspd_property_true <- synth(cspd_prop_prep)
+```
+
+```{r}
+path.plot(synth.res = synth_cspd_property_true,
+dataprep.res = cspd_prop_prep,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Colorado Springs, CO","Synthetic Colorado Springs")
+)
+```
+
+```{r}
+weights_cspd_prop <- synth_cspd_property$solution.w
+weights_cspd_prop <- tibble(weight = weights_cspd_prop, id = rownames(weights_cspd_prop))
+weights_cspd_prop <- weights_cspd_prop %>% 
+  arrange(desc(weight))
+```
+
+414 - Clarksville, TN
+260 - Meridian, ID
+326 - Ann Arbor, MI
+472
+431
+6
+
+
+### Sensitivity Analysis on CSPD
+
+```{r}
+diagnostics <- anti_join(no_colorado2, no_colorado1, by = c("state", "city", "year"))
+diagnostics2 <-  anti_join(no_colorado1, no_colorado2, by = c("state", "city", "year"))
+```
+
+
+
+```{r cspd-filter}
+reduced_database_property_cspd <- reduced_database %>% 
+  filter(is.na(property_crime_rate) == FALSE & is.na(violent_crime_rate) == FALSE
+         & is.na(population) == FALSE & 
+           is.na(female_household) == FALSE & is.na(hs) == FALSE & 
+           is.na(res_stability) == FALSE & is.na(over_18) == FALSE & 
+         is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & 
+           is.na(owner_occupied) == FALSE) %>% 
+  filter(year != "2011")
+counts <- reduced_database_property_cspd %>% 
+  count(NAME, sort = TRUE)
+remove_missing <- counts %>% 
+  filter (n < 8)
+reduced_database3 <- anti_join(reduced_database_property_cspd, remove_missing)
+
+add_numbers <- reduced_database3 %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
+  distinct(NAME) 
+
+add_numbers <- add_numbers %>% 
+  mutate(id = 1:nrow(add_numbers))
+
+reduced_database3 <- full_join(reduced_database3, add_numbers, by = "NAME")
+
+no_colorado2 <- reduced_database3 %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
+  mutate(id = as.numeric(id)) 
+no_colorado2 <- no_colorado2 %>% 
+  mutate(year = as.numeric(year)) 
+no_colorado2 <- as.data.frame(no_colorado2)
+```
+
+```{r}
+cspd_prop_prep$X0 <- cspd_prop_prep$X0[,colSums(cspd_prop_prep$X0 != 0) != 0]
+cspd_prop_prep$X1 <- cspd_prop_prep$X1[,colSums(cspd_prop_prep$X1 != 0) != 0]
+cspd_prop_prep$Z0 <- cspd_prop_prep$Z0[,colSums(cspd_prop_prep$Z0 != 0) != 0]
+cspd_prop_prep$Z1 <- cspd_prop_prep$Z1[,colSums(cspd_prop_prep$Z1 != 0) != 0]
+
+```
+
+
+```{r cspd-prep}
+cspd_prop_prep <- dataprep(foo = no_colorado2, predictors = c("population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 189, controls.identifier = c(1:188, 191:521), 
+         time.predictors.prior = 2012:2019, time.optimize.ssr = 2016:2019, 
+         time.plot = 2012:2019)
+         
+```
+
+
+
+
+```{r}
+synth_cspd_property_sensitivity <- synth(cspd_prop_prep)
+```
+
+```{r}
+path.plot(synth.res = synth_cspd_property_true,
+dataprep.res = cspd_prop_prep,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Colorado Springs, CO","Synthetic Colorado Springs")
+)
+```
+
+```{r}
+weights_cspd_prop <- synth_cspd_property$solution.w
+weights_cspd_prop <- tibble(weight = weights_cspd_prop, id = rownames(weights_cspd_prop))
+weights_cspd_prop <- weights_cspd_prop %>% 
+  arrange(desc(weight))
+```

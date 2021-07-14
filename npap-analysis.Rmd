@@ -35,11 +35,18 @@ tx_offenses21 <- read_csv("data/houston_nibrs_2021.csv")
 cspd <- read_csv("data/Crime_Level_Data.csv")
 seattle_uof <- read_csv("data/Use_Of_Force.csv")
 mn_uof <- read_csv("data/Police_Use_of_Force.csv")
+cspd_uof <- read_csv("data/cspd_uof.csv")
+fspd_offenses <- read_csv("data/fspd_offenses.csv")
+nibrs_conversion <- read_csv("fbi/NIBRS_OFFENSE_TYPE.csv")
+champaign21 <- read_csv("data/2021_champaign.csv")
+champaign20 <- read_csv("data/2020_champaign.csv")
+champaign19 <- read_csv("data/2019_champaign.csv")
 
 # shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
 
 ### Wrangling
+
 
 
 
@@ -357,6 +364,182 @@ tx_property <- tx_offenses %>%
   
 ```
 
+```{r fspd-wrangling}
+names(fspd_offenses)[2] <- "date"
+names(nibrs_conversion)[2] <- "IBRCode"
+
+nibrs_conversion <- nibrs_conversion %>% 
+  select(IBRCode, OFFENSE_NAME, CRIME_AGAINST)
+
+fspd_offenses <- full_join(fspd_offenses, nibrs_conversion, by = "IBRCode")
+
+dates <- str_split(fspd_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+fspd_offenses <- tibble(fspd_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+fspd_offenses <- fspd_offenses %>% 
+  mutate(violent = ifelse(OFFENSE_NAME == "Aggravated Assault" | 
+           OFFENSE_NAME == "Murder & Nonnegligent Manslaughter" | 
+           OFFENSE_NAME == "Rape" | 
+           OFFENSE_NAME == "Robbery" |
+           OFFENSE_NAME == "Sexual Assault With An Object" | 
+             OFFENSE_NAME == "Fondling" | 
+             OFFENSE_NAME == "Sodomy", 1, 0)) %>% 
+  mutate(property = ifelse(OFFENSE_NAME == "All Other Larceny" | 
+                             OFFENSE_NAME == "Arson" | 
+                             OFFENSE_NAME == "Burglary/Breaking & Entering" |
+                             OFFENSE_NAME == "Motor Vehicle Theft" | 
+                             OFFENSE_NAME == "Shoplifting" | 
+                             OFFENSE_NAME == "Stolen Property Offenses" | 
+                             OFFENSE_NAME == "Pocket-picking" |
+                             OFFENSE_NAME == "Theft From Building" | 
+                             OFFENSE_NAME == "Theft From Coin-Operated Machine or Device" | 
+                             OFFENSE_NAME == "Theft From Motor Vehicle" | 
+                             OFFENSE_NAME == "Theft of Motor Vehicle Parts or Accessories" | 
+                             OFFENSE_NAME == "Destruction/Damage/Vandalism of Property" | 
+                             OFFENSE_NAME == "Purse-snatching", 1, 0))
+
+
+daily_totals_fspd <- fspd_offenses %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(date)
+
+monthly_totals_fspd <- fspd_offenses %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(my) 
+
+fspd_monthly_violent <- fspd_offenses %>% 
+    filter(violent == 1) %>% 
+  count(month, year, my) %>% 
+  mutate(time_period = case_when(
+    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "2019-20",
+    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+fspd_violent <- fspd_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE) 
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, fspd_violent) %>% 
+  mutate(n = 0)
+
+fspd_violent <- full_join(antijoin, fspd_violent) %>% 
+  arrange(desc(date))
+
+fspd_property <-fspd_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+```
+
+```{r}
+il_offenses %>% 
+  count(description)
+```
+
+
+```{r champaign-wrangling}
+il_offenses <- full_join(champaign19, champaign20)
+il_offenses <- full_join(il_offenses, champaign21)
+
+names(il_offenses)[1] <- 'date'
+names(il_offenses)[2] <- 'description'
+
+year <- str_split(il_offenses$date, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(month = month, year = year)
+il_offenses <- tibble(il_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+il_offenses <- il_offenses %>% 
+  mutate(violent = if_else(description == "ARSON" | 
+                             description == "ARSON-AGGRAVATED" | 
+                             description == "ASSAULT-AGGRAVATED" | 
+                             description == "MURDER-FIRST DEGREE" | 
+                             description == "MURDER-SECOND DEGREE" |
+                             description == "PREDATORY CRIM SEX ASSAULT OF CHILD" | 
+                             description == "SEXUAL ABUSE-AGGRAVATED" | 
+                             description == "SEXUAL ABUSE-CRIMINAL" |
+                             description == "SEXUAL ASSAULT-AGG CRIMINAL" | 
+                             description == "SEXUAL EXPLOITATION OF A CHILD" |
+                             description == "SEXUAL-ASSAULT-CRIMINAL" |
+                             description == "SEXUAL ABUSE-AGGRAVATED" | 
+                             description == "VIOL CHILD MURDERER/VIOLENT OFF ACT" |
+                             description == "ROBBERY" |
+                              description == "ROBBERY-AGGRAVATED" |
+                            description == "ROBBERY-ARMED"
+                           , 1, 0)) %>% 
+  mutate(property = if_else(description == "BURGLARY" | 
+                              description == "CRIMINAL DAMAGE GOVT SUPPORT PROP" |
+                              description == "BURGLARY FROM MOTOR VEHICLE" | 
+                              description == "BURGLARY MOTOR VEH PARTS & ACCESS" | 
+                              description == "BURGLARY RESIDENTIAL" | 
+                              description == "CRIMINAL DAMAGE TO PROPERTY" | 
+                              description == "CRIMINAL DEFACEMENT OF PROPERTY" | 
+                              description == "DAMAGE TO CITY PROPERTY" | 
+                              description == "DAMAGING PROPERTY" | 
+                              description == "POCKET-PICKING" | 
+                              description == "RETAIL THEFT" | 
+                              description == "THEFT $500 AND UNDER" |
+                              description == "THEFT BY LESSEE" |
+                              description == "THEFT FROM COIN-OP MACHINE/DEVICE" |
+                              description == "THEFT FROM MOTOR VEHICLE" |
+                              description == "THEFT GENERALLY" |
+                              description == "THEFT OF LOST/MISLAID PROP" |
+                              description == "THEFT OF LOST/MISLAID PROPERTY" |
+                              description == "THEFT OF MOTOR VEH PARTS & ACCESS" |
+                              description == "THEFT OVER $500" |
+                              description == "THEFT-AGG IDENTITY" |
+                              description == "THEFT-IDENTITY" |
+                              description == "THEFT-LABOR OR SERVICES" |
+                              description == "THEFT-LOST/MISLAID PROPERTY" |
+                              description == "THEFT-MOTOR VEHICLE" |
+                              description == "THEFT-RETAIL" |
+                              description == "THEFT-AGG IDENTITY", 1, 0))
+
+il_violent <- il_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+il_property <- il_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+```
+
+
+
 
 ```{r mn-wrangling, message = FALSE}
 mn_offenses18 <- mn_offenses18 %>% 
@@ -406,6 +589,83 @@ mn_property_totals <- mn_offenses %>%
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
+```
+
+```{r uof-wrangling-co}
+names(cspd_uof)[4] <- "date"
+names(cspd_uof)[5] <- "reason"
+names(cspd_uof)[6] <- "force_type"
+names(cspd_uof)[7] <- "injury"
+
+year <- str_split(cspd_uof$date, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(month = month, year = year)
+
+cspd_uof <- tibble(cspd_uof, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+cspd_uof_analysis <- cspd_uof %>%
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE) 
+
+cspd_uof_monthly <- cspd_uof %>% 
+  count(my)
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, cspd_uof_analysis) %>% 
+  mutate(n = 0)
+
+cspd_uof_analysis <- full_join(antijoin, cspd_uof_analysis) %>% 
+  arrange(desc(date))
+  
+
+```
+
+
+```{r uof-wrangling-wa}
+names(seattle_uof)[4] <- "date"
+
+
+seattle_uof$date <- str_split(seattle_uof$date, " ", simplify = TRUE)[,1]
+year <- str_split(seattle_uof$date, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(month = month, year = year)
+
+seattle_uof <- seattle_uof %>% 
+  tibble(dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+seattle_uof_analysis <- seattle_uof %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE) 
+
+seattle_uof_monthly <- seattle_uof %>% 
+  count(my)
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, seattle_uof_analysis) %>% 
+  mutate(n = 0)
+
+seattle_uof_analysis <- full_join(antijoin, seattle_uof_analysis) %>% 
+  arrange(desc(date))
 ```
 
 
@@ -1006,6 +1266,53 @@ combined %>%
          conf_int = TRUE, conf_level = 0.95)
 ```
 
+
+### Fort Smith Comparison
+
+```{r combine-analysis-fspd}
+t1 <- co_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- co_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Denver")
+
+wat1 <- fspd_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- fspd_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysisfspd <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Fort Smith")
+
+combined <- full_join(combined_analysis, combined_analysisfspd)
+```
+```{r fspd-t-test}
+combined %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Fort Smith"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+P-value is greater than any reasonable alpha level of 0.05, 0.01, or even 0.1, indicating data does not provide statistically significant evidence that Fort Smith's average daily in violent crime was different from Denver's increase between the two time intervals.
+
+
 ### Minneapolis Comparison
 
 I ran the same test but with a different control city - Minneapolis. I calculated the same proportional daily differences in violent crimes between both cities and ran a t-test to determine if the proportional daily differences in violent crimes were different between the two cities.
@@ -1384,6 +1691,50 @@ combined_tx %>%
 
 Because the p-value of nearly 0 is far less than a reasonable alpha level of 0.01, we reject the null hypothesis. The data provides sufficient evidence to indicate that Denver's increase in property crime from the June 2019-20 period to the June 2020-21 period was significantly different from Houston's increase in property crime. The confidence interval further indicates that Denver's average proportional daily increase in property crime was significantly greater than Houston's increase.
 
+
+### Fort Smith Comparison
+
+```{r combine-analysis-fspd}
+t1 <- co_property_totals %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- co_property_totals %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Denver")
+
+wat1 <- fspd_property %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- fspd_property %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysisfspd <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Fort Smith")
+
+combined <- full_join(combined_analysis, combined_analysisfspd)
+```
+```{r fspd-t-test}
+combined %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Denver", "Fort Smith"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
 #### Colorado Springs Property Crime Tests
 
 Colorado Springs is another populous jurisdiction in Colorado and was also influenced by the elimination of qualified immunity through legislation. If the same trend can be found in Colorado Springs, the data would provide strong evidence that a factor specific to populous cities in Colorado as a whole may be influencing the spike in property crime rates.
@@ -1472,72 +1823,84 @@ In terms of absolute differences, we are 95% confident that the true average dai
 
 ## Civilian Shootings
 
-### CO Fatal Shootings EDA
+### CO Use of Force EDA
 
-```{r}
-shootings_totals <- co_shootings %>% 
-  count(my) 
-
-df <- tibble(my = as.Date("2021-02-01"), n = 0)
-shootings_totals <- rbind(shootings_totals, df)
-```
-
-
-```{r}
-shootings_totals %>% 
-  filter(my >= as.Date("2016-01-01")) %>% 
-  ggplot(aes(x = my, y = n)) +
+```{r co-uof}
+ggplot(cspd_uof_monthly, aes(x = my, y = n)) +
   geom_point() + 
-  labs(title = "2013-2021 Monthly Fatal Police Shootings", 
+  labs(title = "Use of Force Incident Trends in Colorado Springs", 
        x = "Date", 
-       y = "Number of Fatal Police Shootings") + 
-  theme(legend.position = "none") + 
+       y = "Number of Monthly Use of Force Incidents") + 
+  theme(legend.position = "none") +
   geom_line() +
   geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
              color = "red", alpha = 0.5)
 ```
 
-### CO Fatal Shootings Analysis
+```{r}
+ggplot(seattle_uof_monthly, aes(x = my, y = n)) +
+  geom_point() + 
+  labs(title = "Use of Force Incident Trends in Seattle", 
+       x = "Date", 
+       y = "Number of Monthly Use of Force Incidents") + 
+  theme(legend.position = "none") +
+  geom_line() +
+  geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
+             color = "red", alpha = 0.5)
+```
 
-```{r co-2020-2021-crimes}
-co_shootings %>% 
-  filter(date >= as.Date("2020-06-19")) %>% 
-  nrow() # a year minus one month - max goes up to May 19
+### CO Use of Force Analysis
+
+```{r}
+t1 <- cspd_uof_analysis %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- cspd_uof_analysis %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Colorado Springs")
+
+wat1 <- seattle_uof_analysis %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- seattle_uof_analysis %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1), 
+         abs_diff = p2 - p1) %>% 
+  mutate(jurisdiction = "Seattle")
+
+combined <- full_join(combined_analysis, combined_analysiswa)
+```
+
+```{r}
+combined %>% 
+  t_test(diff ~ jurisdiction, 
+         mu = 0, 
+         order = c("Colorado Springs", "Seattle"), 
+         alternative = "two-sided", 
+         conf_int = TRUE, conf_level = 0.95)
+```
+
+```{r}
+combined %>% 
+  group_by(jurisdiction) %>% 
+  summarise(mean = mean(diff), 
+            mean2 = mean(abs_diff))
 ```
 
 
-```{r co-summary-stats}
-co_shootings %>% 
-  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-18")) %>% 
-  nrow() 
-```
-
-```{r co-summary-stats}
-co_shootings %>% 
-  filter(date >= as.Date("2019-06-19") & date < as.Date("2020-05-19")) %>% 
-  nrow() #2019-20
-co_shootings %>% 
-  filter(date >= as.Date("2018-06-19") & date <= as.Date("2019-05-19")) %>% 
-  nrow() #2018-19
-co_shootings %>% 
-  filter(date >= as.Date("2017-06-19") & date <= as.Date("2018-05-19")) %>% 
-  nrow() #2017-18
-co_shootings %>% 
-  filter(date >= as.Date("2016-06-19") & date <= as.Date("2017-05-19")) %>% 
-  nrow() #2016-17
-co_shootings %>% 
-  filter(date >= as.Date("2015-06-19") & date < as.Date("2016-05-19")) %>% 
-  nrow()
-co_shootings %>% 
-  filter(date >= as.Date("2014-06-19") & date <= as.Date("2015-05-19")) %>% 
-  nrow()
-co_shootings %>% 
-  filter(date >= as.Date("2013-06-19") & date <= as.Date("2014-05-19")) %>% 
-  nrow()
-
-```
-
-Based on these summary statistics, it does appear that qualified immunity reform coincided with a significant decrease in fatal police shootings. In particular, fatal police shootings decreased by 12 shootings from the June 2019 to May 2020 time period (44) compared to the June 2020 to May 2021 time period (32). When compared to the past 3 years (starting from the 2017-18 time period to now), the number of fatal police shootings had been relatively consistent at around 43-44; the number only dropped in the most recent time interval. However, when analyzing the past 7-8 years, the number of fatal police shootings have reached the lows of 18 in the past, indicating that a number as low as 32 fatal police shootings may not be particularly unusual.
 
 
 ## Citations
