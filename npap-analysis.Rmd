@@ -287,12 +287,30 @@ wa_violent <- wa_offenses %>%
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
+wa_limited_violent <- wa_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
 wa_property <- wa_offenses %>% 
   filter(property == 1) %>% 
   count(date) %>% 
   mutate(time_period = case_when(
     date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+wa_limited_property <- wa_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
 ```
@@ -440,6 +458,24 @@ antijoin <- anti_join(add_dates, fspd_violent) %>%
 fspd_violent <- full_join(antijoin, fspd_violent) %>% 
   arrange(desc(date))
 
+fspd_limited_violent <- fspd_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_limited_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, fspd_limited_violent) %>% 
+  mutate(n = 0)
+
+fspd_limited_violent <- full_join(antijoin, fspd_limited_violent) %>% 
+  arrange(desc(date))
+
 fspd_property <-fspd_offenses %>% 
   filter(property == 1) %>% 
   count(date) %>% 
@@ -449,11 +485,16 @@ fspd_property <-fspd_offenses %>%
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
-```
+fspd_limited_property <- fspd_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
 
-```{r}
-il_offenses %>% 
-  count(description)
+
 ```
 
 
@@ -528,6 +569,53 @@ il_violent <- il_offenses %>%
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_violent) %>% 
+  mutate(n = 0)
+
+il_violent <- full_join(antijoin, il_violent) %>% 
+  arrange(desc(date))
+
+il_limited_violent <- il_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_limited_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_limited_violent) %>% 
+  mutate(n = 0)
+
+il_limited_violent <- full_join(antijoin, il_limited_violent) %>% 
+  arrange(desc(date))
+
+il_limited_property <- il_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_limited_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_limited_property) %>% 
+  mutate(n = 0)
+
+il_limited_property <- full_join(antijoin, il_limited_property) %>% 
+  arrange(desc(date))
+
+
+
 il_property <- il_offenses %>% 
   filter(property == 1) %>% 
   count(date) %>% 
@@ -536,6 +624,15 @@ il_property <- il_offenses %>%
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_property) %>% 
+  mutate(n = 0)
+
+il_property <- full_join(antijoin, il_property) %>% 
+  arrange(desc(date))
 ```
 
 
@@ -1310,7 +1407,6 @@ combined %>%
          conf_int = TRUE, conf_level = 0.95)
 ```
 
-P-value is greater than any reasonable alpha level of 0.05, 0.01, or even 0.1, indicating data does not provide statistically significant evidence that Fort Smith's average daily in violent crime was different from Denver's increase between the two time intervals.
 
 
 ### Minneapolis Comparison
@@ -1402,6 +1498,130 @@ combined_mn %>%
 ```
 
 Even in terms of absolute differences, the p-value of 0.0014 is below an alpha level of 0.01, meaning we  reject the null hypothesis. The data does provide significant evidence that Minneapolis' daily average absolute increase in violent crime was not equal to Denver's daily average absolute increase in violent crime between the two periods. Based on the two-sample confidence interval, it appears that Minneapolis had a significantly greater average absolute increase in violent crime compared to Denver's increase.
+
+### Synthetic Control Comparison
+
+According to the synthetic control model, these four cities are by far weighted the most heavily in comparing violent crime rates to Denver:
+
+Seattle, Washington (496) - 0.2174257
+Houston, TX (449) - 0.2064292
+Fort Smith, AR (14) - 0.1988124
+Champaign, IL (266) - 0.1385536
+
+```{r}
+0.2174257 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
+0.2064292 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
+0.1988124 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
+0.1385536 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
+```
+
+```{r create-weighted-average}
+t1 <- co_limited_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- co_limited_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(jurisdiction = "Denver") %>% 
+  select(diff, jurisdiction)
+
+wat1 <- wa_limited_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- wa_limited_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(seattle_diff = (p2 - p1) / sum(p1)) %>% 
+  select(seattle_diff)
+
+wat1 <- tx_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- tx_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysistx <- tibble(wat1, wat2) %>% 
+  mutate(tx_diff = (p2 - p1) / sum(p1)) %>% 
+  select(tx_diff)
+
+wat1 <- fspd_limited_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- fspd_limited_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysisfspd <- tibble(wat1, wat2) %>% 
+  mutate(fspd_diff = (p2 - p1) / sum(p1)) %>% 
+  select(fspd_diff)
+
+wat1 <- il_limited_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- il_limited_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysisil <- tibble(wat1, wat2) %>% 
+  mutate(il_diff = (p2 - p1) / sum(p1)) %>% 
+  select(il_diff)
+
+synthetic <- tibble(combined_analysiswa, combined_analysistx, combined_analysisfspd, 
+                    combined_analysisil) %>% 
+  mutate(diff = seattle_diff * 0.2856276 + tx_diff * 0.2711817 + fspd_diff * 0.2611757 + 
+           il_diff * 0.182015) %>% 
+  mutate(jurisdiction = "Synthetic Control")  %>% 
+  select(diff, jurisdiction)
+
+combined_synthetic <- full_join(combined_analysis, synthetic)
+```
+
+```{r simulate-diff-synthetic}
+null_dist <- combined_synthetic %>% 
+  specify(diff ~ jurisdiction) %>% 
+  hypothesize(null = "independence") %>% 
+  generate(reps = 10000, type = "permute") %>% 
+  calculate(stat = "diff in means", 
+            order = c("Denver", "Synthetic Control"))
+
+obs_diff <- combined_synthetic %>% 
+  specify(diff ~ jurisdiction) %>% 
+  calculate(stat = "diff in means", order = c("Denver", "Synthetic Control")) %>% 
+  pull()
+
+null_dist %>% 
+  filter(stat >= obs_diff) %>% 
+  summarise(p_value = n()/nrow(null_dist))
+
+```
+
+Because the p-value of 0.0437 is greater than a reasonable alpha level of 0.01, we fail to reject the null hypothesis. The data does not provide sufficient evidence at the 1% level that Denver's average daily difference in violent crimes between 2020-21 vs 2019-20 is significantly greater than Seattle's average daily increase in violent crimes. However, at the 5% level, the test would reject the null hypothesis.
+
+```{r}
+ggplot(null_dist, aes(x = stat)) + 
+  geom_histogram() + 
+  geom_vline(xintercept = obs_diff, lty = 2, color = "red")
+```
 
 ### Colorado Springs Tests
 
