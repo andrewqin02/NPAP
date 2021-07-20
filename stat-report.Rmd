@@ -1,0 +1,60 @@
+---
+title: "Statistical Report on Qualified Immunity"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Setup
+
+```{r load-packages}
+library(tidyverse)
+library(knitr)
+library(rvest)
+library(lubridate)
+library(infer)
+library(readxl)
+library(tm)
+library(Synth)
+set.seed(460)
+```
+
+```{r load-data}
+co_offenses <- read_csv("data/crime.csv")
+wa_offenses <- read_csv("data/SPD_Crime_Data__2008-Present.csv")
+mn_offenses18 <- read_csv("data/Police_Incidents_2018_PIMS.csv")
+mn_offenses19 <- read_csv("data/Police_Incidents_2019.csv")
+mn_offenses20 <- read_csv("data/Police_Incidents_2020.csv")
+mn_offenses21 <- read_csv("data/Police_Incidents_2021.csv")
+tx_offenses19 <- read_csv("data/houston_nibrs_2019.csv")
+tx_offenses20 <- read_csv("data/houston_nibrs_2020.csv")
+tx_offenses21 <- read_csv("data/houston_nibrs_2021.csv")
+cspd <- read_csv("data/Crime_Level_Data.csv")
+fspd_offenses <- read_csv("data/fspd_offenses.csv")
+nibrs_conversion <- read_csv("fbi/NIBRS_OFFENSE_TYPE.csv")
+champaign21 <- read_csv("data/2021_champaign.csv")
+champaign20 <- read_csv("data/2020_champaign.csv")
+champaign19 <- read_csv("data/2019_champaign.csv")
+```
+
+## Introduction and Background
+
+Qualified immunity is a court-established doctrine that shields government officials from personal liability for constitutional violations unless the officials violated clearly established laws (https://www.lawfareblog.com/what-qualified-immunity-and-what-does-it-have-do-police-reform). After the killing of George Floyd sparked movements against police violence around the country, many activists directed their attention towards qualified immunity as a subject of reform. Activists argued that qualified immunity prevents police officers from being held accountable for excessive uses of force. Supporters of qualified immunity argued that efforts to limit qualified immunity would prevent police officers from effectively carrying out their job out of fear of frivolous lawsuits. In this statistical report, we aim to provide preliminary data-driven insights on the effects of recently passed qualfied immunity reform on violent and property crime rates in major urban jurisdictions.
+
+Four states have passed measures to limit qualified immunity: Colorado, Connecticut, New Mexico, and New York. Of those states, Colorado passed its reform the earliest, with its measure taking effect June 19 of 2020. As a result, we decided to analyze Colorado crime data to determine the effects of qualified immunity on crime rates. In particular, our research question was as follows: Was the passage of qualified immmunity reform in Colorado in June of 2020 correlated with significantly larger proportional increases in average daily violent and property crime incidents than increases in control jurisdictions? Because statewide incident-level data for 2020 and 2021 YTD from Colorado was not publicly available, we further narrowed the scope of our analysis to Denver and Colorado Springs, the two largest jurisdictions within Colorado.
+
+Although we attempt to esttablish some level of causation in this study through the use of a synthetic control model, we lack the volume of observational data needed to successfully establish causation. In particular, we are missing observations on several key lurking variables, including the effects of COVID on poverty rates in each jurisdictions, 2020 and 2021 census data, community attitudes towards policing as a result of the George Floyd protests, amidst several others. Much of this data will only be released a few years from now, severly limiting the contours of this analysis. However, due to the prescience of the qualified immunity question and the need for data within the debate, we decided to produce this preliminary report to at least illustrate the plausible effects of qualified immunity on crime rates in Colorado. None of the findings in this report should be interpreted as demonstrating a conclusive causal relationship between qualified immunity reform and crime.
+
+## Methodology
+
+In this study, we employed a synthetic control model as described by Alberto Abadie in his article "Using Synthetic Controls: Feasibility, Data Requirements, and Methodological Aspects." In a synthetic control model, we create a weighted average of crime rates from different jurisdictions identified based on having close control predictors and crime rates to Denver and Colorado Springs. The synthetic control model has the advantage of systematically identifying the strongest control jurisdictions based on predictor numbers over time, as opposed to simply manually identifying a geographically close jurisdictions and claiminig the existence of sufficient connection to isolate the effects of the policy intervention.
+
+Because no database of city predictors and violent/property crime rates over 2011-2019 previously existed, we created a new database from ACS census data from 2011 to 2019 recording each jurisdiction's name, single female-led family household percentage, percentage of people who were high school graduates or higher, percentage of people who lived in the same house they lived in a year ago, percentage of people who are over 18, percentage of people who are white, percentage of people who are self-employed, unemployment rate, median income, child poverty rate, and the percentage of housing units occupied by their owners. Each of these predictors had been identified as possible or significant predictors of crime within metropolitan and nonmetropolitan counties in a different study published by researchers Wells and Weishelt (Explaining Crime in Metropolitan and Non-Metropolitan Counties). We then combined the city predictor data with violent crime, property crime, and population statistics from UCR Crime in the United States fact tables. Our final full database included over 83000 observations and 20 variables, each observation representing a jurisdiction at a particular year. We then filtered the database to only include cities above 50000 in population to remove small rural jurisdictions that would not likely match the dynamics of more urban areas like Denver. Additionally, we removed jurisdictions with missing data on violent/property crime rates or missing yearly data.
+
+Since publicly available data was not available for 2020-2021 from either the UCR or the ACS, we utilized the Synth package to create a synthetic control model for Denver and Colorado Springs from 2011-2019. We optimized the synthetic control model for 2016 to 2019 to obtain jurisdictions that could follow the more recent trends in both Denver and Colorado Springs. We then identified roughly the top 5 jurisdictions with the highest weights and reran the synthetic control model with only those jurisdictions to recalculate the weights. With those identified control jurisdictions, we submitted requests for incident-level crime data from those departments for 2019-2021.
+
+We subdivided all incident-level crime data into property and violent crimes based on UCR definitions. In particular, murder and nonnegligent homicide, aggravated assault, robbery, and forcible rape (including sexual assault with an object, fondling, and forcible sodomy) were identified as violent crimes. We categorized larceny charges, burglary, property damage/destruction, arson, shoplifting, pocket-picking, and motor vehicle theft charges as property crimes. We then calculated the daily numbers of violent and property offenses for June of 2019 to June of 2020 (before qualified immunity reform) and June of 2020 to June of 2021 (after qualified immunity reform) in control and treated jurisdictions. We then subtracted the daily numbers of violent and property offenses in the 2019-20 time period from the 2020-21 time period and divided by the total number of violent or property offenses in the 2019-20 time period to make the daily numbers of violent and propery crimes proportionate to each jurisdiction's respective crime numbers. Finally, we created a bootstrapped null distribution assuming truly no difference between the increases between the synthetic jurisdiction and Denver or Colorado Springs and calculated a p-value based on 
+
+
