@@ -41,6 +41,7 @@ nibrs_conversion <- read_csv("fbi/NIBRS_OFFENSE_TYPE.csv")
 champaign21 <- read_csv("data/2021_champaign.csv")
 champaign20 <- read_csv("data/2020_champaign.csv")
 champaign19 <- read_csv("data/2019_champaign.csv")
+austin_offenses <- read_csv("data/Crime_Reports.csv")
 
 # shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
@@ -381,6 +382,69 @@ tx_property <- tx_offenses %>%
   filter(is.na(time_period) == FALSE)
   
 ```
+
+```{r austin-wrangling}
+names(austin_offenses)[6] <- "date"
+names(austin_offenses)[22] <- "description"
+
+austin_offenses <- austin_offenses %>% 
+  filter(is.na(date) == FALSE)
+
+dates <- str_split(austin_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+austin_offenses <- tibble(austin_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+austin_offenses <- austin_offenses %>% 
+  mutate(violent = ifelse(description == "Aggravated Assault" | 
+           description == "Murder" | 
+           description == "Rape" | 
+           description == "Robbery", 1, 0)) %>% 
+  mutate(property = ifelse(description == "Auto Theft" | 
+                             description == "Burglary" | 
+                             description == "Theft", 1, 0))
+
+austin_violent <- austin_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_limited_violent <- austin_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_property <- austin_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_limited_property <- austin_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+```
+
 
 ```{r fspd-wrangling}
 names(fspd_offenses)[2] <- "date"
@@ -1503,17 +1567,6 @@ Even in terms of absolute differences, the p-value of 0.0014 is below an alpha l
 
 According to the synthetic control model, these four cities are by far weighted the most heavily in comparing violent crime rates to Denver:
 
-Seattle, Washington (496) - 0.2174257
-Houston, TX (449) - 0.2064292
-Fort Smith, AR (14) - 0.1988124
-Champaign, IL (266) - 0.1385536
-
-```{r}
-0.2174257 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
-0.2064292 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
-0.1988124 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
-0.1385536 / (0.2174257 + 0.2064292 + 0.1988124 + 0.1385536)
-```
 
 ```{r create-weighted-average}
 t1 <- co_limited_violent %>% 
@@ -1588,12 +1641,12 @@ combined_analysisil <- tibble(wat1, wat2) %>%
 
 synthetic <- tibble(combined_analysiswa, combined_analysistx, combined_analysisfspd, 
                     combined_analysisil) %>% 
-  mutate(diff = seattle_diff * 0.2856276 + tx_diff * 0.2711817 + fspd_diff * 0.2611757 + 
-           il_diff * 0.182015) %>% 
+  mutate(diff = seattle_diff * 0.496466442 + tx_diff * 0.004280705 + fspd_diff * 0.487715311 + 
+           il_diff * 0.011537542) %>% 
   mutate(jurisdiction = "Synthetic Control")  %>% 
   select(diff, jurisdiction)
 
-combined_synthetic <- full_join(combined_analysis, synthetic)
+combined_synthetic_violent <- full_join(combined_analysis, synthetic)
 ```
 
 ```{r simulate-diff-synthetic}
@@ -1615,7 +1668,7 @@ null_dist %>%
 
 ```
 
-Because the p-value of 0.2155 is greater than a reasonable alpha level of 0.01, we fail to reject the null hypothesis. The data does not provide sufficient evidence at the 1% level that Denver's average daily difference in violent crimes between 2020-21 vs 2019-20 is significantly greater than the synthetic control's average daily increase in violent crimes. 
+Because the p-value of 0.1024 is greater than a reasonable alpha level of 0.01, we fail to reject the null hypothesis. The data does not provide sufficient evidence at the 1% level that Denver's average daily difference in violent crimes between 2020-21 vs 2019-20 is significantly greater than the synthetic control's average daily increase in violent crimes. 
 
 ```{r}
 ggplot(null_dist, aes(x = stat)) + 
@@ -1957,18 +2010,18 @@ combined %>%
 
 #### Synthetic Control Comparison
 
-```{r}
-0.2004187 / (0.2095526 + 0.2004187 + 0.1772544 + 0.1243610)
-0.2095526 / 
-```
+Austin, Texas - 0.6935988
+Champaign - 0.2188792
+Seattle - 0.08747524
+Fort Smith - 0.00004654831
 
 
 ```{r create-weighted-average-property}
-t1 <- co_limited_property %>% 
+t1 <- co_property_totals %>% 
   filter(time_period == "2019-20") %>% 
   select(n) %>% 
   rename("p1" = n)
-t2 <- co_limited_property %>% 
+t2 <- co_property_totals %>% 
   filter(time_period == "2020-21") %>% 
   select(n) %>% 
   rename("p2" = n)
@@ -1978,12 +2031,12 @@ combined_analysis <- tibble(t1, t2) %>%
   mutate(jurisdiction = "Denver") %>% 
   select(diff, jurisdiction)
 
-wat1 <- wa_limited_property %>% 
+wat1 <- wa_property %>% 
   filter(time_period == "2019-20") %>% 
   select(n) %>% 
   rename("p1" = n)
 
-wat2 <- wa_limited_property %>% 
+wat2 <- wa_property %>% 
   filter(time_period == "2020-21") %>% 
   select(n) %>% 
   rename("p2" = n)
@@ -1992,12 +2045,12 @@ combined_analysiswa <- tibble(wat1, wat2) %>%
   mutate(seattle_diff = (p2 - p1) / sum(p1)) %>% 
   select(seattle_diff)
 
-wat1 <- tx_property %>% 
+wat1 <- austin_property %>% 
   filter(time_period == "2019-20") %>% 
   select(n) %>% 
   rename("p1" = n)
 
-wat2 <- tx_property %>% 
+wat2 <- austin_property %>% 
   filter(time_period == "2020-21") %>% 
   select(n) %>% 
   rename("p2" = n)
@@ -2006,12 +2059,12 @@ combined_analysistx <- tibble(wat1, wat2) %>%
   mutate(tx_diff = (p2 - p1) / sum(p1)) %>% 
   select(tx_diff)
 
-wat1 <- fspd_limited_property %>% 
+wat1 <- fspd_property %>% 
   filter(time_period == "2019-20") %>% 
   select(n) %>% 
   rename("p1" = n)
 
-wat2 <- fspd_limited_property %>% 
+wat2 <- fspd_property %>% 
   filter(time_period == "2020-21") %>% 
   select(n) %>% 
   rename("p2" = n)
@@ -2020,12 +2073,12 @@ combined_analysisfspd <- tibble(wat1, wat2) %>%
   mutate(fspd_diff = (p2 - p1) / sum(p1)) %>% 
   select(fspd_diff)
 
-wat1 <- il_limited_property %>% 
+wat1 <- il_property %>% 
   filter(time_period == "2019-20") %>% 
   select(n) %>% 
   rename("p1" = n)
 
-wat2 <- il_limited_property %>% 
+wat2 <- il_property %>% 
   filter(time_period == "2020-21") %>% 
   select(n) %>% 
   rename("p2" = n)
@@ -2036,12 +2089,12 @@ combined_analysisil <- tibble(wat1, wat2) %>%
 
 synthetic <- tibble(combined_analysiswa, combined_analysistx, combined_analysisfspd, 
                     combined_analysisil) %>% 
-  mutate(diff = seattle_diff * 0.2856276 + tx_diff * 0.2711817 + fspd_diff * 0.2611757 + 
-           il_diff * 0.182015) %>% 
+  mutate(diff = seattle_diff * 0.08747524 + tx_diff * 0.6935988 + fspd_diff * 0.00004654831 + 
+           il_diff * 0.2188792) %>% 
   mutate(jurisdiction = "Synthetic Control")  %>% 
   select(diff, jurisdiction)
 
-combined_synthetic <- full_join(combined_analysis, synthetic)
+combined_synthetic_property <- full_join(combined_analysis, synthetic)
 ```
 
 ```{r simulate-diff-synthetic}
@@ -2061,6 +2114,14 @@ null_dist2 %>%
   filter(stat >= obs_diff) %>% 
   summarise(p_value = n()/nrow(null_dist))
 
+```
+
+Because the p-value of 0 is far less than a reasonable alpha level of 0.01, we reject the null hypothesis. The data provides sufficient evidence to indicate that Denver's average daily proportional increase in property crime after the passage of qualified immunity was significantly greater than control cities' increase in property crime over the same time period.
+
+```{r}
+ggplot(null_dist2, aes(x = stat)) + 
+  geom_histogram() + 
+  geom_vline(xintercept = obs_diff, lty = 2, color = "red")
 ```
 
 #### Colorado Springs Property Crime Tests
