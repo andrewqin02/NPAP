@@ -142,12 +142,19 @@ co_limited_property <- co_offenses %>%
 
 co_monthly_violent <- co_offenses %>% 
   filter(violent == 1) %>% 
-  count(month, year, my) %>% 
+  count(my) %>% 
   mutate(time_period = case_when(
-    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "2019-20",
-    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "2020-21"
-  )) %>% 
-  filter(is.na(time_period) == FALSE)
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
+
+co_monthly_property <- co_offenses %>% 
+  filter(property == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
 
 co_property_totals <- co_offenses %>% 
   filter(property == 1) %>% 
@@ -208,6 +215,14 @@ cspd_violent <- cspd %>%
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
+cspd_monthly_violent <- cspd %>% 
+  filter(violent == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
+
 cspd_property <- cspd %>% 
   filter(property == 1) %>% 
   count(date) %>% 
@@ -216,6 +231,14 @@ cspd_property <- cspd %>%
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
+
+cspd_monthly_property <- cspd %>% 
+  filter(property == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
 ```
 
 
@@ -272,10 +295,10 @@ monthly_totals_wa <- wa_offenses %>%
 
 wa_monthly_violent <- wa_offenses %>% 
     filter(violent == 1) %>% 
-  count(month, year, my) %>% 
+  count(my) %>% 
   mutate(time_period = case_when(
-    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "2019-20",
-    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "2020-21"
+    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "before_qi",
+    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "after_qi"
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
@@ -314,6 +337,15 @@ wa_limited_property <- wa_offenses %>%
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
+
+wa_monthly_property <- wa_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "before_qi",
+    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "after_qi"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
 ```
 
 ```{r houston-wrangling}
@@ -335,6 +367,8 @@ names(tx_offenses21)[6] <- "offense_count"
 
 tx_offenses19 <- tx_offenses19 %>% 
   select(-14)
+
+
 
 tx_offenses <- full_join(tx_offenses19, tx_offenses20)
 tx_offenses <- full_join(tx_offenses, tx_offenses21)
@@ -369,6 +403,15 @@ tx_violent <- tx_offenses %>%
   mutate(time_period = case_when(
     date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+tx_monthly_violent <- tx_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "before_qi",
+    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "after_qi"
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
