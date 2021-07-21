@@ -61,6 +61,86 @@ This methodology had a few critical limitations. First, because of the lack of 2
 
 ## Exploratory Data Analysis
 
+We began by visualizing daily violent crime and property crime numbers in both Denver and Colorado Springs.
+
+```{r}
+
+y_int <- co_monthly_violent %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(co_monthly_violent, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Violent Crime Numbers in Denver from 2016 to 2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 10, lty = 2)
+```
+
+The black dotted line represents 10 reported incidents above the maximum number of violent crime offenses in a single month in the four years prior to passage of qualified immunity reform. Although 2020 did have 2 months surpass the maximum number of violent crime offenses in a single month, there does not appear to be a significantly greater number of violent crimes after the passage of qualified immunity reform compared to qualified immunity reform beforehand. The graph also indicates the importance of controlling the effects of seasonal shifts on crime; since violent crimes tend to increase during the summer, we cannot employ a methodology of comparing the first half of 2020 to the second half of 2020 because the first half of 2020 encompassed less of the high-crime summer months.
+
+```{r monthly-prop-denver}
+y_int <- co_monthly_property %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(co_monthly_property, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Property Crime Numbers in Denver from 2016 to 2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 50, lty = 2)
+```
+
+On the other hand, for Denver property crimes, almost every month after the passage of qualified immunity reform far surpassed the previous maximum number of property offenses in a single month. The bar graph provides preliminary evidence that Denver property crimes increased substantially after the passage of the police accountability bill in June of 2020, although the bar graph also appears to depict a rise in property crime that began before the passage of the bill (the spike beginning in roughly April of 2020 which already matched the highs of the summer months beforehand). Unfortunately, it is difficult to disentangle the effects of normal seasonal shifts and the COVID recession from the effects of the police accountability bill (if there were any).
+
+```{r monthly-violent-cspd}
+y_int <- cspd_monthly_violent %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(cspd_monthly_violent, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Violent Crime Numbers in Colorado Springs from 2016 to 2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 10, lty = 2)
+```
+
+Similarly to Denver, Colorado Springs depicted no readily apparent increase in violent crime numbers after the passage of qualified immunity (depicted in red bars). 
+
+```{r monthly-property-cspd}
+y_int <- cspd_monthly_property %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(cspd_monthly_property, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Property Crime Numbers in Colorado Springs from 2016 to 2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 50, lty = 2)
+```
+
+Diverging from Denver trends, however, Colorado Springs lacked the large rise in property crime numbers that Denver saw after the passage of qualified immunity. The graphs provide some preliminary evidence that the rise in property crime in Denver may have been due to other factors unrelated to the passage of qualified immunity (such as municipal budget issues or worse COVID effects there).
+
+
 ```{r add-dates-combined-synthetic}
 p2_dates <- co_property_totals %>% 
   filter(time_period == "2020-21") %>% 
@@ -86,7 +166,16 @@ p2_dates <- full_join(p2_dates, p2_dates2) %>%
 combined_synthetic_violent <- tibble(combined_synthetic_violent, p2_dates)
 ```
 
-
+```{r}
+ggplot(combined_synthetic_violent, aes(y = diff, x = date, color = jurisdiction)) + 
+  geom_point(alpha = 0.4) + 
+  geom_smooth(alpha = 1.4, se = FALSE) + 
+  theme_bw() + 
+  labs(title = "Very little apparent increase in violent crimes in both Denver and control", 
+       y = "Proportional Daily Differences", 
+       x = "2020-21 Date", 
+       color = "Jurisdiction")
+```
 
 ```{r}
 ggplot(combined_synthetic_property, aes(y = diff, x = date, color = jurisdiction)) + 
@@ -96,7 +185,7 @@ ggplot(combined_synthetic_property, aes(y = diff, x = date, color = jurisdiction
   labs(title = "Daily increases in Denver property crimes are greater than control increases", 
        y = "Proportional Daily Differences", 
        x = "2020-21 Date", 
-       color = "Jurisdiction") 
+       color = "Jurisdiction")
 ```
 
 
