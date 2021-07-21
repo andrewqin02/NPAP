@@ -514,29 +514,29 @@ reduced_database2 <- anti_join(reduced_database_violent, remove_missing)
 
 
 ```{r}
-add_numbers <- reduced_database2 %>% 
+add_numbers_violent <- reduced_database2 %>% 
   filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
   distinct(NAME) 
 
-add_numbers <- add_numbers %>% 
-  mutate(id = 1:nrow(add_numbers))
+add_numbers_violent <- add_numbers_violent %>% 
+  mutate(id = 1:nrow(add_numbers_violent))
 
-reduced_database2 <- full_join(reduced_database2, add_numbers, by = "NAME")
+reduced_database2 <- full_join(reduced_database2, add_numbers_violent, by = "NAME")
 ```
 
 ```{r remove-non-denver-colorado}
-no_colorado1 <- reduced_database2 %>% 
+no_colorado <- reduced_database2 %>% 
   filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
   mutate(id = as.numeric(id)) 
-no_colorado1 <- no_colorado1 %>% 
+no_colorado <- no_colorado %>% 
   mutate(year = as.numeric(year)) 
-no_colorado1 <- as.data.frame(no_colorado1)
+no_colorado <- as.data.frame(no_colorado)
 ```
 
-
+1:184, 187:514
 
 ```{r}
-prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
+prep <- dataprep(foo = no_colorado, predictors = c("population", "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "median_income", 
@@ -544,7 +544,7 @@ prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_househ
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 186, controls.identifier = c(1:184, 187:514), 
-         time.predictors.prior = 2011:2019, time.optimize.ssr = 2014:2019, 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
          time.plot = 2011:2019)
          
 ```
@@ -572,7 +572,7 @@ weights <- tibble(weight = weights, id = rownames(weights))
 weights <- weights %>% 
   arrange(desc(weight)) %>% 
   mutate(id = as.numeric(id)) %>% 
-  full_join(add_numbers, by = "id")
+  full_join(add_numbers_violent, by = "id")
 ```
 
 Violent Crimes for Denver (all 9 years):
@@ -586,21 +586,21 @@ Ann Arbor, MI (328)
 I reran the synthetic control model with just the four cities with data to reweight the averages.
 
 ```{r}
-prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
+prep_test <- dataprep(foo = no_colorado, predictors = c("population", "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "median_income", 
                                                 "child_poverty", "owner_occupied"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 186, controls.identifier = c(496, 449, 14, 266, 269), 
+         treatment.identifier = 186, controls.identifier = c(496, 449, 14, 266), 
          time.predictors.prior = 2011:2019, time.optimize.ssr = 2014:2019, 
          time.plot = 2011:2019)
          
 ```
 
 ```{r}
-synth_complete_test <- synth(prep)
+synth_complete_test <- synth(prep_test)
 ```
 
 ```{r}
@@ -618,7 +618,7 @@ Although the graph comparing the synthetic control and Denver is somewhat worse 
 
 
 ```{r prep-co-springs}
-prep_cosprings <- dataprep(foo = no_colorado1, predictors = c("population", 
+prep_cosprings <- dataprep(foo = no_colorado, predictors = c("population", 
                                                               "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
@@ -626,7 +626,8 @@ prep_cosprings <- dataprep(foo = no_colorado1, predictors = c("population",
                                                 "child_poverty", "owner_occupied"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 185, controls.identifier = c(1:184, 187:514), 
+         treatment.identifier = 185, controls.identifier = c(1:184, 187:259, 261:327, 
+                                                             329:514), 
          time.predictors.prior = 2011:2018, time.optimize.ssr = 2016:2019, 
          time.plot = 2011:2019)
 ```
@@ -650,14 +651,19 @@ Synthetic Colorado Springs does not appear to closely match CO Springs' trend fr
 weights <- synth_co_springs$solution.w
 weights <- tibble(weight = weights, id = rownames(weights))
 
-```
-
-```{r}
 weights <- weights %>% 
   arrange(desc(weight)) %>% 
   mutate(id = as.numeric(id)) %>% 
-  full_join(add_numbers, by = "id")
+  full_join(add_numbers_violent, by = "id")
 ```
+
+
+
+Meridian, Idaho - 260
+Lawton, Oklahoma - 400
+Ann Arbor, Michigan - 328
+Chico, California - 36
+South Jordan, Utah - 478
 
 ## Synthetic Control Modelling for Property Crimes
 
@@ -719,7 +725,7 @@ denver_prop_prep <- dataprep(foo = no_colorado1, predictors = c("population", "f
 
 
 ```{r}
-synth_denver_property <- synth(denver_prop_prep_test)
+synth_denver_property <- synth(denver_prop_prep)
 ```
 
 ```{r}

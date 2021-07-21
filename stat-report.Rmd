@@ -49,7 +49,7 @@ Although we attempt to esttablish some level of causation in this study through 
 
 ## Methodology
 
-In this study, we employed a synthetic control model as described by Alberto Abadie in his article "Using Synthetic Controls: Feasibility, Data Requirements, and Methodological Aspects." In a synthetic control model, we create a weighted average of crime rates from different jurisdictions identified based on having close control predictors and crime rates to Denver and Colorado Springs. The synthetic control model has the advantage of systematically identifying the strongest control jurisdictions based on predictor numbers over time, as opposed to simply manually identifying a geographically close jurisdictions and claiminig the existence of sufficient connection to isolate the effects of the policy intervention.
+In this study, we employed a combination of methods. We constructed a synthetic control model as described by Alberto Abadie in his article "Using Synthetic Controls: Feasibility, Data Requirements, and Methodological Aspects." In a synthetic control model, we create a weighted average of crime rates from different jurisdictions identified based on having close control predictors and crime rates to Denver and Colorado Springs. The synthetic control model has the advantage of systematically identifying the strongest control jurisdictions based on predictor numbers over time, as opposed to simply manually identifying a geographically close jurisdictions and claiming the existence of sufficient connection to isolate the effects of the policy intervention. We then utilized a difference in differences approach based on simulation to determine if the difference between the daily crime incidents between the post-qualified immunity reform time period and pre-reform time period in treated units were the same as the difference in the synthetic control jurisdiction. 
 
 Because no database of city predictors and violent/property crime rates over 2011-2019 previously existed, we created a new database from ACS census data from 2011 to 2019 recording each jurisdiction's name, single female-led family household percentage, percentage of people who were high school graduates or higher, percentage of people who lived in the same house they lived in a year ago, percentage of people who are over 18, percentage of people who are white, percentage of people who are self-employed, unemployment rate, median income, child poverty rate, and the percentage of housing units occupied by their owners. Each of these predictors had been identified as possible or significant predictors of crime within metropolitan and nonmetropolitan counties in a different study published by researchers Wells and Weishelt (Explaining Crime in Metropolitan and Non-Metropolitan Counties). We then combined the city predictor data with violent crime, property crime, and population statistics from UCR Crime in the United States fact tables. Our final full database included over 83000 observations and 20 variables, each observation representing a jurisdiction at a particular year. We then filtered the database to only include cities above 50000 in population to remove small rural jurisdictions that would not likely match the dynamics of more urban areas like Denver. Additionally, we removed jurisdictions with missing data on violent/property crime rates or missing yearly data.
 
@@ -264,7 +264,52 @@ ggplot(combined_synthetic_property, aes(y = diff, x = date, color = jurisdiction
        color = "Jurisdiction")
 ```
 
+## Analysis
 
+We began by creating the database of all census cities/towns within America from 2011-2019 that had both UCR and ACS data. From there, we filtered the database to only include cities greater than 50000 in population to identify roughly 500 similar jurisdictions to Colorado Springs and Denver. Using each jurisdiction's violent and property crime rates, we created synthetic jurisdictions based on the averages of all 500 jurisdictions. The resulting graphs comparing the true treated units with their synthetic control models pre-treatment over 2011-19 are shown below.
 
+```{r denver-violent-crime-synth-plot}
+path.plot(synth.res = synth_complete,
+dataprep.res = prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
 
+The first graph comparing the Denver annual violent crime rates with the synthetic control model's is relatively strong, with the synthetic control model's violent crime rates roughly matching some of the trends and the level of Denver's violent crime rate pre-treatment. There are some imperfections; for instance, Denver's random yearly fluctuation isn't fully matched each year, although Denver's overall trend is roughly captured in the model. 
 
+Due to limitations in obtaining 2020 and 2021 data, I limited the calculation of the weighted average to the top 4 jurisdictions and recalculated the synthetic model to obtain new weights (the 5th jurisdiction denied our FOIA request). The true fit of the model to pre-treatment Denver is depicted below:
+
+```{r denver-violent-crime-true-synth-plot}
+path.plot(synth.res = synth_complete_test,
+dataprep.res = prep_test,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+The synthetic of the 4 cities is slightly higher in terms of level but still follows the trend of true pre-treatment Denver roughly correctly. Thus, we found the synthetic control to be similar enough to the real Denver to safely proceed with statistical tests.
+
+```{r denver-property-crimes-synthetic-control-graph}
+path.plot(synth.res = synth_denver_property,
+dataprep.res = denver_prop_prep,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+On the other hand, the plot comparing pre-treatment Denver and the synthetic control model for Denver do not appear to be on the same level prior to 2017. From 2017 to 2019, the plot is roughly correct in comparing property crime rates, but the significant drop in the synthetic model from 2016 to 2017 indicates that the model may be somewhat limited in its explanatory potential and ability to cast a counterfactual for Denver.
+
+```{r denver-property-crimes-synthetic-control-graph-true}
+path.plot(synth.res = synth_denver_property_test,
+dataprep.res = denver_prop_prep_test,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+The synthetic of the top 5 cities of the previous synthetic control model is still significantly off in terms of following the trends of Denver in terms of property crimes. This may reflect crucial limitations in the ability of the synthetic control model to account for Denver property crime trends.

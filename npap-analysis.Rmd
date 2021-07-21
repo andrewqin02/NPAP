@@ -296,11 +296,8 @@ monthly_totals_wa <- wa_offenses %>%
 wa_monthly_violent <- wa_offenses %>% 
     filter(violent == 1) %>% 
   count(my) %>% 
-  mutate(time_period = case_when(
-    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "before_qi",
-    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "after_qi"
-  )) %>% 
-  filter(is.na(time_period) == FALSE)
+  rename(wa_n = n)
+  
 
 wa_violent <- wa_offenses %>% 
   filter(violent == 1) %>% 
@@ -341,11 +338,7 @@ wa_limited_property <- wa_offenses %>%
 wa_monthly_property <- wa_offenses %>% 
     filter(property == 1) %>% 
   count(my) %>% 
-  mutate(time_period = case_when(
-    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "before_qi",
-    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "after_qi"
-  )) %>% 
-  filter(is.na(time_period) == FALSE)
+  rename(wa_n = n)
 ```
 
 ```{r houston-wrangling}
@@ -368,10 +361,17 @@ names(tx_offenses21)[6] <- "offense_count"
 tx_offenses19 <- tx_offenses19 %>% 
   select(-14)
 
-
-
 tx_offenses <- full_join(tx_offenses19, tx_offenses20)
 tx_offenses <- full_join(tx_offenses, tx_offenses21)
+
+dates <- str_split(tx_offenses$date, "-", simplify = TRUE)
+month <- dates[,2]
+year <- dates[,1]
+dates <- tibble(month = month, year = year)
+tx_offenses <- tibble(tx_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
 
 tx_offenses <- tx_offenses %>% 
   select(1:6) %>% 
@@ -394,8 +394,7 @@ tx_offenses <- tx_offenses %>%
                              description == "Motor vehicle theft" | 
                              description == "Theft of motor vehicle parts or accessory" | 
                              description == "Destruction, damage, vandalism" | 
-                             description == "Purse-snatching", 1, 0)) %>% 
-  mutate(date = mdy(date))
+                             description == "Purse-snatching", 1, 0)) 
 
 tx_violent <- tx_offenses %>% 
   filter(violent == 1) %>% 
@@ -409,11 +408,7 @@ tx_violent <- tx_offenses %>%
 tx_monthly_violent <- tx_offenses %>% 
     filter(violent == 1) %>% 
   count(my) %>% 
-  mutate(time_period = case_when(
-    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "before_qi",
-    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "after_qi"
-  )) %>% 
-  filter(is.na(time_period) == FALSE)
+  rename(tx_n = n)
 
 tx_property <- tx_offenses %>% 
   filter(property == 1) %>% 
@@ -423,7 +418,11 @@ tx_property <- tx_offenses %>%
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
-  
+
+tx_monthly_property <- tx_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(tx_n = n)
 ```
 
 ```{r austin-wrangling}
@@ -486,6 +485,16 @@ austin_limited_property <- austin_offenses %>%
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
+
+austin_monthly_property <- austin_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(austin_n = n)
+
+austin_monthly_violent <- austin_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(austin_n = n)
 ```
 
 
@@ -540,12 +549,8 @@ monthly_totals_fspd <- fspd_offenses %>%
 
 fspd_monthly_violent <- fspd_offenses %>% 
     filter(violent == 1) %>% 
-  count(month, year, my) %>% 
-  mutate(time_period = case_when(
-    my >= as.Date("2019-07-01") & my < as.Date("2020-07-01") ~ "2019-20",
-    my >= as.Date("2020-07-01") & my < as.Date("2021-07-01") ~ "2020-21"
-  )) %>% 
-  filter(is.na(time_period) == FALSE)
+  count(my) %>% 
+  rename(fspd_n = n)
 
 fspd_violent <- fspd_offenses %>% 
   filter(violent == 1) %>% 
@@ -601,6 +606,10 @@ fspd_limited_property <- fspd_offenses %>%
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
+fspd_monthly_property <- fspd_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(fspd_n = n)
 
 ```
 
@@ -681,6 +690,16 @@ add_dates <- co_violent %>%
 
 antijoin <- anti_join(add_dates, il_violent) %>% 
   mutate(n = 0)
+
+il_monthly_violent <- il_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(il_n = n)
+
+il_monthly_property <- il_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(il_n = n)
 
 il_violent <- full_join(antijoin, il_violent) %>% 
   arrange(desc(date))
