@@ -1,1 +1,5 @@
-# NPAP
+# NPAP Qualified Immunity Project
+
+In this repo, you will find the datasets needed to create the statistical report through the `stat-report.Rmd` file as well as two other R Markdown files that were utilized in this analysis. The `database_construction.Rmd` file was utilized to create the database of over 500 jurisdictions and to create the synthetic controls for Denver and Colorado Springs for both violent and property crime rates. Unfortunately, due to the size of the census files and the crime files, the files could not be uploaded to Github, but references to the files can be found in the "References" section of the final report. The `npap-analysis.Rmd` file includes much of the code I used to gain the preliminary data conclusions before moving to the statistical report file. Finally, the Word document represents the rough draft of the statistical report submitted to the National Police Accountability Project, where the references can be found. Note that the .Rmd file for the statistics report does not entirely match the report Word document, since positioning of images and editing of narrative was performed significantly on the Word document itself.
+
+This project is still in progress and will continue into the fall semester. For inquiries, please email ayq3@duke.edu.

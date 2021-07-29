@@ -41,7 +41,8 @@ nibrs_conversion <- read_csv("fbi/NIBRS_OFFENSE_TYPE.csv")
 champaign21 <- read_csv("data/2021_champaign.csv")
 champaign20 <- read_csv("data/2020_champaign.csv")
 champaign19 <- read_csv("data/2019_champaign.csv")
-austin_offenses <- read_csv("data/Crime_Reports.csv")
+# austin_offenses <- read_csv("data/Crime_Reports.csv") # old Austin offenses file
+austin_offenses <- read_csv("data/austin_offenses.csv")
 
 # shootings <- read_excel("data/MPVDatasetDownload.xlsx")
 ```
@@ -242,7 +243,6 @@ cspd_monthly_property <- cspd %>%
 ```
 
 
-
 ```{r add-date-wa}
 names(wa_offenses)[3] <- 'date'
 names(wa_offenses)[7] <- 'crime_against'
@@ -425,21 +425,26 @@ tx_monthly_property <- tx_offenses %>%
   rename(tx_n = n)
 ```
 
+
 ```{r austin-wrangling}
-names(austin_offenses)[6] <- "date"
-names(austin_offenses)[22] <- "description"
+# names(austin_offenses)[6] <- "date"
+# names(austin_offenses)[22] <- "description"
 
-austin_offenses <- austin_offenses %>% 
-  filter(is.na(date) == FALSE)
+# austin_offenses <- austin_offenses %>% 
+  # filter(is.na(date) == FALSE)
 
-dates <- str_split(austin_offenses$date, "/", simplify = TRUE)
-month <- dates[,1]
-year <- dates[,3]
-dates <- tibble(month = month, year = year)
-austin_offenses <- tibble(austin_offenses, dates) %>% 
-  mutate(date = mdy(date)) %>% 
-  mutate(my = paste0(month, "-01-", year)) %>% 
-  mutate(my = mdy(my)) # convert to date format
+# dates <- str_split(austin_offenses$date, "/", simplify = TRUE)
+# month <- dates[,1]
+# year <- dates[,3]
+# dates <- tibble(month = month, year = year)
+# austin_offenses <- tibble(austin_offenses, dates) %>% 
+  # mutate(date = mdy(date)) %>% 
+  # mutate(my = paste0(month, "-01-", year)) %>% 
+  # mutate(my = mdy(my)) # convert to date format
+
+# austin_offenses <- austin_offenses %>% 
+  # filter(year >= 2019)
+# write_csv(austin_offenses, "austin_offense") # Create shortened austin offenses for commit
 
 austin_offenses <- austin_offenses %>% 
   mutate(violent = ifelse(description == "Aggravated Assault" | 
@@ -1596,7 +1601,7 @@ combined_mn <- full_join(combined_analysis, combined_analysismn)
 
 $H_0: \mu_{Denver} = \mu_{Minneapolis}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis
 
-$H_A: \mu_Denver} ≠ \mu_{Minneapolis}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis
+$H_A: \mu_{Denver} ≠ \mu_{Minneapolis}$. The true mean daily proportional difference in number of violent offenses between the June 2020 to May 2021 time period compared to the June 2019 to May 2020 time period in Denver, CO is not equal to the true mean daily proportional difference in number of violent offenses between the two time periods in Minneapolis
 
 $\alpha$ = 0.01
 
@@ -2278,24 +2283,22 @@ In terms of absolute differences, we are 95% confident that the true average dai
 
 ```{r co-uof}
 ggplot(cspd_uof_monthly, aes(x = my, y = n)) +
-  geom_point() + 
+  geom_bar(stat = "identity") + 
   labs(title = "Use of Force Incident Trends in Colorado Springs", 
        x = "Date", 
        y = "Number of Monthly Use of Force Incidents") + 
   theme(legend.position = "none") +
-  geom_line() +
   geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
              color = "red", alpha = 0.5)
 ```
 
 ```{r}
 ggplot(seattle_uof_monthly, aes(x = my, y = n)) +
-  geom_point() + 
+  geom_bar(stat = "identity") + 
   labs(title = "Use of Force Incident Trends in Seattle", 
        x = "Date", 
        y = "Number of Monthly Use of Force Incidents") + 
   theme(legend.position = "none") +
-  geom_line() +
   geom_vline(xintercept = as.Date("2020-06-19"), lty = 2, lwd = 0.5, 
              color = "red", alpha = 0.5)
 ```
@@ -2352,6 +2355,79 @@ combined %>%
 ```
 
 
+```{r diagnostics-to-npap-graph}
+wat1 <- wa_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- wa_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(pop_diff = (p2 - p1) / 753675 * 100000) %>% 
+  mutate(jurisdiction = "Seattle") %>% 
+  select(date, diff, pop_diff, jurisdiction)
+
+wat1 <- tx_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- tx_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysistx <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(pop_diff = (p2 - p1) / 2320268 * 100000) %>% 
+  mutate(jurisdiction = "Houston") %>% 
+  select(date, diff, pop_diff, jurisdiction)
+
+wat1 <- fspd_violent %>%
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n) 
+
+wat2 <- fspd_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysisfspd <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(pop_diff = (p2 - p1) / 87891 * 100000) %>% 
+  mutate(jurisdiction = "Fort Smith") %>% 
+  select(date, diff, pop_diff, jurisdiction)
+
+wat1 <- il_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- il_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysisil <- tibble(wat1, wat2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(pop_diff = (p2 - p1) / 88909 * 100000) %>% 
+  mutate(jurisdiction = "Champaign") %>% 
+  select(date, diff, pop_diff, jurisdiction)
+
+diagnostics <- full_join(combined_analysiswa, combined_analysisfspd) %>% 
+  full_join(combined_analysistx) %>% 
+  full_join(combined_analysisil) 
+
+ggplot(diagnostics, aes(x = diff, fill = jurisdiction)) + 
+  geom_density(alpha = 0.4) 
+```
+
+```{r}
+austin_offenses %>% 
+  summarise(max = max(date))
+```
 
 
 ## Citations

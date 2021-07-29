@@ -549,6 +549,8 @@ prep <- dataprep(foo = no_colorado, predictors = c("population", "female_househo
          
 ```
 
+
+
 ```{r}
 synth_complete <- synth(prep)
 ```
@@ -610,6 +612,18 @@ Ylab = c("Violent Crime Rates"),
 Xlab = c("Year"),
 Legend = c("Denver, CO","Synthetic Denver")
 )
+```
+
+```{r}
+
+weights_denver_violent <- synth_complete_test$solution.w
+weights_denver_violent <- tibble(weight = weights_denver_violent, id = rownames(weights_denver_violent))
+
+weights_denver_violent <- weights_denver_violent %>% 
+  arrange(desc(weight)) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  full_join(add_numbers_violent, by = "id") %>% 
+  slice(1:4)
 ```
 
 Although the graph comparing the synthetic control and Denver is somewhat worse than the other synthetic control graph, this graph depicts close enough trends between the synthetic control model and Denver to warrant running a test comparing the violent crime rates in both cities over the time period.
@@ -774,12 +788,12 @@ Legend = c("Denver, CO","Synthetic Denver")
 ```
 
 ```{r}
-weights_denver_prop <- synth_denver_property_test$solution.w
-weights_denver_prop <- tibble(weight = weights_denver_prop, id = rownames(weights_denver_prop))
-weights_denver_prop <- weights_denver_prop %>% 
+weights_denver_prop_test <- synth_denver_property_test$solution.w
+weights_denver_prop_test <- tibble(weight = weights_denver_prop_test, id = rownames(weights_denver_prop_test))
+weights_denver_prop_test <- weights_denver_prop_test %>% 
   arrange(desc(weight)) %>% 
   mutate(id = as.numeric(id))
-weights_denver_prop <- full_join(weights_denver_prop, add_numbers, by = "id")
+weights_denver_prop_test <- full_join(weights_denver_prop_test, add_numbers, by = "id")
 ```
 
 449 - Austin, TX - 0.6936
@@ -921,3 +935,14 @@ weights_cspd_prop <- weights_cspd_prop %>%
 
 21 - Jacksonville, Florida
 15 - Walnut Creek, California
+
+```{r save-all}
+saveRDS(synth_complete, 
+        file = "/Users/andrewqin02/Desktop/R/NPAP/data/denver_violent_synth.Rdata")
+saveRDS(synth_complete_test, 
+        file = "/Users/andrewqin02/Desktop/R/NPAP/data/denver_violent_true.Rdata")
+saveRDS(synth_denver_property, 
+        file = "/Users/andrewqin02/Desktop/R/NPAP/data/denver_property_synth.Rdata")
+saveRDS(synth_denver_property_test, 
+        file = "/Users/andrewqin02/Desktop/R/NPAP/data/denver_property_true.Rdata")
+```
