@@ -33,6 +33,7 @@ crime_16 <- read_csv("fbi/2016_crimes_bycity.csv")
 crime_17 <- read_csv("fbi/2018_crimes_bycity.csv")
 crime_18 <- read_csv("fbi/2018_crimes_bycity.csv")
 crime_19 <- read_csv("fbi/2019_crimes_bycity.csv")
+crime_20 <- read_csv("fbi/2020_crimes_bycity.csv")
 
 ```
 
@@ -57,6 +58,8 @@ crime_18 <- crime_18 %>%
   slice(1:9252)
 crime_19 <- crime_19 %>% 
   slice(1:8105)
+crime_20 <- crime_20 %>% 
+  slice(1:7689)
 
 ```
 
@@ -100,6 +103,16 @@ crime_18 <- crime_18 %>%
 crime_19 <- crime_19 %>% 
   mutate(year = "2019") %>% 
   fill(State, .direction = "down")
+
+crime_20$State <- crime_20$State %>% 
+  str_replace("Alabama3", "Alabama")
+
+names(crime_20)[4] <- names(crime_11)[4]
+names(crime_20)[9] <- names(crime_11)[9]
+
+crime_20 <- crime_20 %>% 
+  mutate(year = "2020") %>% 
+  fill(State, .direction = "down")
 ```
 
 ```{r combine-data}
@@ -110,7 +123,8 @@ all_crimes <- full_join(all_crimes, crime_15)
 all_crimes <- full_join(all_crimes, crime_16)
 all_crimes <- full_join(all_crimes, crime_17)
 all_crimes <- full_join(all_crimes, crime_18)
-all_crimes <- full_join(all_crimes, crime_19) #can solve forcible rape/rape1 problem by just changing rape1 name to forcible rape
+all_crimes <- full_join(all_crimes, crime_19)
+all_crimes <- full_join(all_crimes, crime_20) #can solve forcible rape/rape1 problem by just changing rape1 name to forcible rape
 ```
 
 ```{r wrangle-all-crimes}
@@ -130,6 +144,8 @@ all_crimes$state <- str_remove(all_crimes$state, ", ")
 all_crimes$city <- str_remove(all_crimes$city, ", ")
 all_crimes$city <- str_remove(all_crimes$city, ",")
 all_crimes$state <- str_to_title(all_crimes$state)
+all_crimes <- all_crimes %>% 
+  mutate(year = as.numeric(year))
 ```
 
 
@@ -465,6 +481,7 @@ write_csv(full_database, "data/crime_database.csv") #finished database creation
 full_database <- read_csv("data/crime_database.csv")
 ```
 
+
 ```{r fix-damages}
 reduced_database <- full_database %>% 
   filter(population >= 50000) %>% 
@@ -494,6 +511,26 @@ for_removal <- full_join(for_removal, for_removal2)
 reduced_database <- anti_join(reduced_database, for_removal)
 ```
 
+## Correlation Diagnostics - Linear Models to Replicate Conclusions
+
+```{r}
+lm_database <- reduced_database %>% 
+  filter(year != 2020)
+lm_database2 <- reduced_database %>% 
+  filter(year == 2019)
+```
+
+```{r}
+diag1 <- lm(violent_crime_rate ~ female_household + hs + res_stability + over_18 + white_percent +
+   self_employed + unemployment + median_income + child_poverty + owner_occupied, data = lm_database)
+tidy(diag1)
+```
+
+```{r}
+diag2 <- lm(violent_crime_rate ~ female_household + hs + res_stability + over_18 + white_percent +
+   self_employed + unemployment + median_income + child_poverty + owner_occupied, data = lm_database2)
+tidy(diag2)
+```
 
 ## Synthetic Control Modelling for Violent Crimes
 
