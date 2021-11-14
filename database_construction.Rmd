@@ -17,6 +17,7 @@ library(lubridate)
 library(infer)
 library(readxl)
 library(tm)
+library(broom)
 library(Synth)
 set.seed(460)
 ```
@@ -427,6 +428,31 @@ full_acs <- full_join(full_acs, economic_acs, by = c("NAME", "year"), include - 
 full_acs <- full_join(full_acs, housing_acs, by = c("NAME", "year"), include = TRUE)
 ```
 
+```{r create-pop-density}
+full_acs$NAME <- gsub("\\s*\\([^\\)]+\\)","",as.character(full_acs$NAME)) # Code taken from https://stackoverflow.com/questions/24173194/remove-parentheses-and-text-within-from-strings-in-r to remove parentheses
+full_acs$NAME <- str_replace(full_acs$NAME, " city, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " municipality, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " village, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " town, ", ", ")
+full_acs$NAME <- str_replace(full_acs$NAME, " CDP, ", ", ")
+full_acs$NAME <- str_remove(full_acs$NAME, "-Fayette urban county")
+full_acs$NAME <- str_remove(full_acs$NAME, "-Davidson metropolitan government")
+full_acs$NAME <- str_replace(full_acs$NAME, "/Jefferson County metro government", " Metro")
+
+
+pop_density <- read.csv("data/pop_density.csv") # set up population density through land area
+names(pop_density)[1] <- "NAME"
+names(pop_density)[4] <- "land_area"
+pop_density <- pop_density %>% 
+  select(NAME, land_area) 
+
+pop_density$land_area <- str_remove(pop_density$land_area, ",")
+
+pop_density$NAME <- str_replace(pop_density$NAME, "Louisville", "Louisville Metro")
+
+full_acs <- left_join(full_acs, pop_density, by = "NAME")
+```
+
 
 ```{r full-acs}
 full_acs <- full_acs %>% 
@@ -441,32 +467,25 @@ full_acs <- full_acs %>%
          received_snap = as.numeric(received_snap), 
          child_poverty = as.numeric(child_poverty), 
          owner_occupied = as.numeric(owner_occupied), 
-         year = as.numeric(year)) 
-full_acs$NAME <- gsub("\\s*\\([^\\)]+\\)","",as.character(full_acs$NAME)) # Code taken from https://stackoverflow.com/questions/24173194/remove-parentheses-and-text-within-from-strings-in-r to remove parentheses
-full_acs$NAME <- str_replace(full_acs$NAME, " city, ", ", ")
-full_acs$NAME <- str_replace(full_acs$NAME, " municipality, ", ", ")
-full_acs$NAME <- str_replace(full_acs$NAME, " village, ", ", ")
-full_acs$NAME <- str_replace(full_acs$NAME, " town, ", ", ")
-full_acs$NAME <- str_replace(full_acs$NAME, " CDP, ", ", ")
+         year = as.numeric(year), 
+         land_area = as.numeric(land_area)) 
 full_acs$NAME <- str_replace(full_acs$NAME, "San Buenaventura", "Ventura")
 full_acs$NAME <- str_replace(full_acs$NAME, "Washington, District of Columbia", 
                              "Washington, District Of Columbia")
 full_acs$NAME <- str_replace(full_acs$NAME, "Savannah, Georgia", 
                              "Savannah-Chatham Metropolitan, Georgia")
-full_acs$NAME <- str_remove(full_acs$NAME, "-Davidson metropolitan government")
-full_acs$NAME <- str_remove(full_acs$NAME, "-Fayette urban county")
-full_acs$NAME <- str_replace(full_acs$NAME, "/Jefferson County metro government", " Metro")
+
 full_acs$city <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,1]
 full_acs$state <- str_split(full_acs$NAME, ", ", simplify = TRUE)[,2]
 
-full_acs_modified <- full_acs
-full_acs_modified$city <- paste0(full_acs_modified$city, " Township")
 ```
 
 ```{r left-join}
 all_crimes$city <- str_replace(all_crimes$city, "Las Vegas Metropolitan Police Department", 
                                "Las Vegas")
 all_crimes$city <- str_replace(all_crimes$city, "Charlotte-Mecklenburg", "Charlotte")
+all_crimes <- all_crimes %>% 
+  mutate(year = as.numeric(year))
 
 full_database <- left_join(all_crimes, full_acs, by = c("city", "state", "year"))
 ```
@@ -484,9 +503,11 @@ full_database <- read_csv("data/crime_database.csv")
 
 ```{r fix-damages}
 reduced_database <- full_database %>% 
-  filter(population >= 50000) %>% 
+  filter(population >= 100000) %>% 
+  filter(NAME != "Jurupa Valley, California") %>% #Jurupa Valley doesn't have land area data for some reason
   filter(is.na(NAME) == FALSE)
 ```
+
 
 ```{r remove-duplicates, message = FAL}
 for_removal <- reduced_database %>% 
@@ -511,24 +532,40 @@ for_removal <- full_join(for_removal, for_removal2)
 reduced_database <- anti_join(reduced_database, for_removal)
 ```
 
+```{r create-pop-density-variable}
+reduced_database <- reduced_database %>% 
+  mutate(pop_density = population / land_area)
+```
+
+
 ## Correlation Diagnostics - Linear Models to Replicate Conclusions
 
 ```{r}
 lm_database <- reduced_database %>% 
-  filter(year != 2020)
+  filter(year != 2020) %>% 
+  select(violent_crime_rate, property_crime_rate, pop_density, female_household, hs, res_stability, over_18, white_percent, self_employed, 
+         unemployment, median_income, child_poverty, owner_occupied, year)
 lm_database2 <- reduced_database %>% 
   filter(year == 2019)
 ```
 
-```{r}
-diag1 <- lm(violent_crime_rate ~ female_household + hs + res_stability + over_18 + white_percent +
-   self_employed + unemployment + median_income + child_poverty + owner_occupied, data = lm_database)
+```{r test-model}
+diag1 <- lm(property_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
+   self_employed + unemployment + median_income + child_poverty + owner_occupied + year, data = lm_database)
 tidy(diag1)
 ```
 
+```{r initial-model-step}
+initial <- lm(violent_crime_rate ~ 1, data = lm_database)
+
+backward <- step(diag1)
+```
+
+no median income and year
+
 ```{r}
-diag2 <- lm(violent_crime_rate ~ female_household + hs + res_stability + over_18 + white_percent +
-   self_employed + unemployment + median_income + child_poverty + owner_occupied, data = lm_database2)
+diag2 <- lm(property_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
+   self_employed + unemployment + median_income + child_poverty + owner_occupied, data = lm_database)
 tidy(diag2)
 ```
 
