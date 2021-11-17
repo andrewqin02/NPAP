@@ -19,6 +19,7 @@ library(readxl)
 library(tm)
 library(broom)
 library(Synth)
+library(rms)
 set.seed(460)
 ```
 
@@ -534,39 +535,242 @@ reduced_database <- anti_join(reduced_database, for_removal)
 
 ```{r create-pop-density-variable}
 reduced_database <- reduced_database %>% 
-  mutate(pop_density = population / land_area)
+  mutate(pop_density = population / land_area) %>% 
+  filter(is.na(violent_crime_rate) == FALSE) %>% 
+  mutate(obs_num = 1:nrow(reduced_database))
 ```
 
 
 ## Correlation Diagnostics - Linear Models to Replicate Conclusions
 
-```{r}
-lm_database <- reduced_database %>% 
-  filter(year != 2020) %>% 
-  select(violent_crime_rate, property_crime_rate, pop_density, female_household, hs, res_stability, over_18, white_percent, self_employed, 
-         unemployment, median_income, child_poverty, owner_occupied, year)
-lm_database2 <- reduced_database %>% 
-  filter(year == 2019)
-```
+### Linear Model Relating Violent Crime Rate to Predictors
+
+
+
+I created a full model, incorporating every predictor outside of population below. 
 
 ```{r test-model}
-diag1 <- lm(property_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
-   self_employed + unemployment + median_income + child_poverty + owner_occupied + year, data = lm_database)
+diag1 <- lm(violent_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
+   self_employed + unemployment + median_income + child_poverty + owner_occupied + year, data = reduced_database)
 tidy(diag1)
 ```
+As we can see, coefficients related to female household percentage, median income, and year were generally nonsignificant with p-values above 0.05. I used a backward selection process using AIC (erring towards the inclusion of variables to input into the synthetic control model) to determine what variables should be excluded.
 
 ```{r initial-model-step}
-initial <- lm(violent_crime_rate ~ 1, data = lm_database)
-
-backward <- step(diag1)
+backward_diag1 <- step(diag1)
 ```
 
-no median income and year
+Through backward selection, I learned that year and median income should be removed from the analysis.
+
+#### Check Model Conditions
+
+I ran some diagnostics to determine if the linear model was a good fit for the data. Standardized residual plots checked below.
+
+```{r residual-plot-violent-crime}
+augment_diag1 <- augment(backward_diag1)
+
+augment_diag1 <- augment_diag1 %>% 
+  mutate(obs_num = 1:nrow(augment_diag1))
+
+ggplot(augment_diag1, aes(x = .fitted, y = .std.resid)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0) + 
+  labs(title = "Residual Plot of Linear Violent Crime Model", 
+       x = "Fitted Values", 
+       y = "Standardized Residual Values") 
+```
+
+The residual plot clearly fans out, indicating that the linear model is likely not a good fit for the data. 
+
+I tried a log transformation of the response variable to see if that may mitigate some of the problems with the fan shaped residual plot.
+
+```{r test-model-log}
+log_diag1 <- lm(log(violent_crime_rate) ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
+   self_employed + unemployment + child_poverty + owner_occupied, data = reduced_database)
+log_diag1_augment <- augment(log_diag1)
+
+log_diag1_augment <- log_diag1_augment %>% 
+    mutate(obs_num = 1:nrow(log_diag1_augment))
+
+ggplot(log_diag1_augment, aes(x = .fitted, y = .std.resid)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0) + 
+  labs(title = "Residual Plot of Linear Log Transformed Violent Crime Model", 
+       x = "Fitted Values", 
+       y = "Residual Values")
+```
+
+
+Because the residual plot does not display a clear pattern and the residuals appear to be equally distributed, the log transformed linear model meets the linearity and equal variance assumptions. The log transformation appears largely successful.
+
+Normality Assumption:
+
+```{r norm-assumption}
+ggplot(log_diag1, aes(x = .resid)) + 
+  geom_histogram() + 
+  labs(title = "histogram of Standardized Residuals for Log-Transformed Model", 
+       x = "Standardized Residuals", 
+       y = "Frequency")
+```
+
+Because the histogram of the standardized residuals appears roughly normal, the normality assumption is met. Even if there are some normality violations in the histogram, such violations are more then compensated by the fact that the sample size is greater than 30 within the data.
+
+Independence assumption is partially met. Although there are geographic skews that would influence some crime data in one direction or the other (indicating that residuals are not fully independent of each other), such independent violations are inevitable when dealing with social scientific data. As a result, this study does not attempt to use the most robust version of the linear model but only uses the linear model to inform the incorporation of particular predictors. 
+
+#### Model Diagnostics
+
+Critical Numbers:
 
 ```{r}
-diag2 <- lm(property_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
-   self_employed + unemployment + median_income + child_poverty + owner_occupied, data = lm_database)
-tidy(diag2)
+glance(log_diag1)
+```
+
+Model R-squared value is 0.571, indicating that roughly 57.1% of the variation in violent crime rates is explainable by the mentioned predictors. 
+
+Standardized Residual Plot:
+
+```{r std-resid-determine-outliers}
+ggplot(data = log_diag1_augment, aes(x = .fitted,y = .std.resid)) +
+  geom_point(alpha = 0.7) + 
+  geom_hline(yintercept = 0,color = "red") +
+  geom_hline(yintercept = -2,color = "black",linetype = "dotted") +
+  geom_hline(yintercept = 2,color = "black",linetype = "dotted") +
+    geom_hline(yintercept = -3,color = "red",linetype = "dotted") +
+  geom_hline(yintercept = 3,color = "red",linetype = "dotted") +
+  labs(x = "Predicted", y = "Standardized Residuals",
+       title = "Standardized Residuals vs. Predicted") +
+  geom_text(aes(label = ifelse(abs(.std.resid) > 2,
+                               as.character(obs_num),"")), nudge_x = 4)
+```
+Clearly, several observations deviate significantly from the linear model.
+
+Cook's Distance:
+
+```{r}
+ggplot(data = log_diag1_augment, aes(x = obs_num, y = .cooksd)) + 
+  geom_point(alpha = 0.7) + 
+  geom_hline(yintercept = 0.5, color = "red", lty = 2) +
+  geom_hline(yintercept = 1,color = "red") +
+  labs(x = "Observation Number", y = "Cook's Distance",
+       title = "Cook's Distance") +
+  geom_text(aes(label = ifelse(.cooksd > 1,as.character(obs_num),"")), 
+            nudge_x = 2)
+```
+
+No observations have a particularly high Cook's Distance, implying that no points are such outliers that they yield disproportionate leverage on the model, nor are they influential if they do yield leverage.
+
+Multicollinearity:
+
+```{r multicollin}
+vif(log_diag1) %>% 
+  tidy()
+```
+
+The model does not present problems with multicollinearity. 
+
+#### Experimental Removal of High Standardized Residuals
+
+The model isolates several key cities with extremely high or low standardized residuals. A standardized residual above 3 is generally extremely problematic, and a standardized residual above 2 is somewhat problematic. To account for cities with similar dynamics to Denver and Colorado Springs, I attempted to exclude cities with extremely high standardized residuals, as that may indicate extremely different structural dynamics at play that cannot be encapsulated by the model. 
+
+
+```{r experimental-removal}
+std_resid_diag1_augment <- log_diag1_augment %>% 
+  filter(.std.resid >= 2)
+cities_for_removal <- left_join(std_resid_diag1_augment, reduced_database,  by = "obs_num") %>% 
+  count(city, sort = TRUE) %>% 
+  filter(n > 5)
+```
+
+Clearly, many of these cities deviate significantly from the model. I decided to exclude cities that had standardized residuals above 2 at least 5 of the 9 years, meaning that I removed San Francisco, Little Rock, Odessa, Oakland, and Anchorage from the analysis for substantially differing from the dynamics presented by the model.
+
+
+
+
+#### Attempt to Fix Year Residual Skew
+
+Noticing that standardized residuals, on average, seemed to increase substantially as years went on (implying that the model heavily relied on predictors relevant in earlier years and had trouble predicting in later years), I attempted to rectify this by isolating the 2016-2019 time period. This solved the problem to some extent, but it seems the problem still existed (though to a less extreme amount). Re-adding "year" as a variable also did not fix the problem. In the end, because the synthetic control method would be tracking crime rates from 2011-19, I decided to just employ the original model regardless of its systematic residual skews. In sensitivity analysis, I may attempt to use models on just more recent times to isolate further variables that should be included.
+
+```{r limit-by-year}
+lm_database <- reduced_database %>% 
+  filter(year >= 2016)
+
+lm_database <- lm_database %>% 
+  mutate(obs_num = 1:nrow(lm_database)) # Realized that old model had standardized residuals consistently increasing across most jurisdictions as the year increased, indicating that variables of earlier years may be skewing data later. Attempting to fix it by only including years from 2016 or higher.
+
+```
+
+```{r experimental-diag}
+experimental_diag1 <- lm(log(violent_crime_rate) ~ pop_density + population + female_household + hs + 
+                           res_stability + over_18 + white_percent +
+                           self_employed + unemployment + median_income + child_poverty + owner_occupied + year, 
+                         data = lm_database)
+
+backward_experiment <- step(experimental_diag1)
+
+
+```
+
+
+
+
+```{r augment-experimental-diag}
+augment <- augment(backward_experiment)
+augment <- augment %>% 
+  mutate(obs_num = 1:nrow(augment))
+
+lm_database_analysis <- full_join(lm_database, augment, by = "obs_num")
+
+lm_database_analysis %>% 
+  filter(city == "Colorado Springs")
+```
+
+```{r comp-graph-1}
+lm_database_analysis <- lm_database_analysis %>% 
+  filter(city == "Aurora" | city == "Boulder" | city == "Colorado Springs" | city == "Denver")
+
+ggplot(lm_database_analysis, aes(x = year.x, y = .std.resid, color = city)) + 
+  geom_line()
+```
+
+```{r comp-graph-2}
+std_resid_diag1_check <- std_resid_diag1_names %>% 
+  filter(city == "Boulder" | city == "Aurora" | city == "Denver" | city == "Colorado Springs") %>% 
+  filter(state == "Colorado")
+ggplot(std_resid_diag1_check, aes(x = year.x, y = .std.resid, color = city)) + 
+  geom_line()
+```
+
+
+
+### Property Crime Predictor Check
+
+I did the same process to determine what variables should be incorporated or excluded for property crimes.
+```{r}
+diag2 <- lm(property_crime_rate ~ pop_density + female_household + hs + 
+              res_stability + over_18 + white_percent +
+   self_employed + unemployment + median_income + child_poverty + 
+     owner_occupied, data = reduced_database)
+
+backward_diag2 <- step(diag2)
+```
+
+The backward selection process removed racial homogeneity (percent of population who is white) and percentage of population who owns their owhn home (owner occupied housing percentage).
+
+#### Check Model Conditions
+
+1. Linearity - The residual plot below also clearly fans, indicating the need for 
+```{r residual-plot-violent-crime}
+augment_diag2 <- augment(backward_diag2)
+
+augment_diag2 <- augment_diag2 %>% 
+  mutate(obs_num = 1:nrow(augment_diag2))
+
+ggplot(augment_diag2, aes(x = .fitted, y = .std.resid)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0) + 
+  labs(title = "Residual Plot of Linear Property Crime Model", 
+       x = "Fitted Values", 
+       y = "Standardized Residual Values") 
 ```
 
 ## Synthetic Control Modelling for Violent Crimes
@@ -576,62 +780,72 @@ reduced_database_violent <- reduced_database %>%
   filter(is.na(violent_crime_rate) == FALSE & is.na(female_household) == FALSE & 
          is.na(hs) == FALSE & is.na(res_stability) == FALSE & is.na(over_18) == FALSE & 
          is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
-         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE)
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE
+         & is.na(pop_density) == FALSE) %>% 
+  anti_join(cities_for_removal) # removing cities with substantially different dynamics from model.
 counts <- reduced_database_violent %>% 
   count(NAME, sort = TRUE)
 remove_missing <- counts %>% 
   filter (n < 9)
-reduced_database2 <- anti_join(reduced_database_violent, remove_missing)
+reduced_database_violent <- anti_join(reduced_database_violent, remove_missing)
 
 ```
 
 
 
 ```{r}
-add_numbers_violent <- reduced_database2 %>% 
+add_numbers_violent <- reduced_database_violent %>% 
   filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
   distinct(NAME) 
 
 add_numbers_violent <- add_numbers_violent %>% 
   mutate(id = 1:nrow(add_numbers_violent))
 
-reduced_database2 <- full_join(reduced_database2, add_numbers_violent, by = "NAME")
+reduced_database_violent <- full_join(reduced_database_violent, add_numbers_violent, by = "NAME")
 ```
 
 ```{r remove-non-denver-colorado}
-no_colorado <- reduced_database2 %>% 
+reduced_database_violent <- reduced_database_violent %>% 
   filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
   mutate(id = as.numeric(id)) 
-no_colorado <- no_colorado %>% 
+reduced_database_violent <- reduced_database_violent %>% 
   mutate(year = as.numeric(year)) 
-no_colorado <- as.data.frame(no_colorado)
+reduced_database_violent <- as.data.frame(reduced_database_violent)
 ```
 
-1:184, 187:514
+72 73
+1:207
+
+195 works
+
 
 ```{r}
-prep <- dataprep(foo = no_colorado, predictors = c("population", "female_household", 
+denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", "median_income", 
+                                                "unemployment", 
                                                 "child_poverty", "owner_occupied"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 186, controls.identifier = c(1:184, 187:514), 
-         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
+         treatment.identifier = 73, controls.identifier = c(1:71, 74:207), 
+         time.predictors.prior = 2011:2019, time.optimize.ssr = 2014:2019, 
          time.plot = 2011:2019)
          
 ```
 
+200-202 are problematic.
+
+
 
 
 ```{r}
-synth_complete <- synth(prep)
+synth_denver_violent <- synth(denver_violent_prep)
 ```
 
 ```{r}
-path.plot(synth.res = synth_complete,
-dataprep.res = prep,
+path.plot(synth.res = synth_denver_violent,
+dataprep.res = denver_violent_prep,
 Ylab = c("Violent Crime Rates"),
 Xlab = c("Year"),
 Legend = c("Denver, CO","Synthetic Denver")
@@ -639,17 +853,15 @@ Legend = c("Denver, CO","Synthetic Denver")
 ```
 
 ```{r}
-weights <- synth_complete$solution.w
+weights <- synth_denver_violent$solution.w
 weights <- tibble(weight = weights, id = rownames(weights))
-
-```
-
-```{r}
 weights <- weights %>% 
   arrange(desc(weight)) %>% 
   mutate(id = as.numeric(id)) %>% 
   full_join(add_numbers_violent, by = "id")
 ```
+
+
 
 Violent Crimes for Denver (all 9 years):
 
