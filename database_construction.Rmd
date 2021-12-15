@@ -504,8 +504,7 @@ full_database <- read_csv("data/crime_database.csv")
 
 ```{r fix-damages}
 reduced_database <- full_database %>% 
-  filter(population >= 100000) %>% 
-  filter(NAME != "Jurupa Valley, California") %>% #Jurupa Valley doesn't have land area data for some reason
+  filter(population >= 50000) %>% 
   filter(is.na(NAME) == FALSE)
 ```
 
@@ -536,7 +535,9 @@ reduced_database <- anti_join(reduced_database, for_removal)
 ```{r create-pop-density-variable}
 reduced_database <- reduced_database %>% 
   mutate(pop_density = population / land_area) %>% 
-  filter(is.na(violent_crime_rate) == FALSE) %>% 
+  filter(is.na(violent_crime_rate) == FALSE) 
+
+reduced_database <- reduced_database %>% 
   mutate(obs_num = 1:nrow(reduced_database))
 ```
 
@@ -547,20 +548,27 @@ reduced_database <- reduced_database %>%
 
 
 
-I created a full model, incorporating every predictor outside of population below. 
+I created a full model and a null model, incorporating every predictor outside of population below. 
 
 ```{r test-model}
-diag1 <- lm(violent_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
+diag1_full <- lm(violent_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
    self_employed + unemployment + median_income + child_poverty + owner_occupied + year, data = reduced_database)
-tidy(diag1)
+
+diag1_null <- lm(violent_crime_rate ~ 1, data = reduced_database)
+
+tidy(diag1_full)
 ```
-As we can see, coefficients related to female household percentage, median income, and year were generally nonsignificant with p-values above 0.05. I used a backward selection process using AIC (erring towards the inclusion of variables to input into the synthetic control model) to determine what variables should be excluded.
+As we can see, coefficients related to female household percentage, median income, and year were generally nonsignificant with p-values above 0.05. I used a backward selection process using BIC to determine what variables should be excluded.
+
 
 ```{r initial-model-step}
-backward_diag1 <- step(diag1)
+backward_diag1 <- step(diag1_full, direction = "backward", k = log(2533)) # with BIC
+forward_diag1 <- step(diag1_null, direction = "forward", scope = list(
+  lower = diag1_null, upper = diag1_full), k = log(2533))
 ```
 
-Through backward selection, I learned that year and median income should be removed from the analysis.
+Both backward and forward selection concluded that child poverty, high school education, percentage of residents who are white, percent of owner-occupied buildings, unemployment rate, and rate of self-employed individuals should be kept.
+
 
 #### Check Model Conditions
 
@@ -585,8 +593,8 @@ The residual plot clearly fans out, indicating that the linear model is likely n
 I tried a log transformation of the response variable to see if that may mitigate some of the problems with the fan shaped residual plot.
 
 ```{r test-model-log}
-log_diag1 <- lm(log(violent_crime_rate) ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
-   self_employed + unemployment + child_poverty + owner_occupied, data = reduced_database)
+log_diag1 <- lm(log(violent_crime_rate) ~ child_poverty + hs + owner_occupied 
+                + self_employed + white_percent + unemployment, data = reduced_database)
 log_diag1_augment <- augment(log_diag1)
 
 log_diag1_augment <- log_diag1_augment %>% 
@@ -668,6 +676,10 @@ vif(log_diag1) %>%
 
 The model does not present problems with multicollinearity. 
 
+```{r}
+tidy(log_diag1)
+```
+
 #### Experimental Removal of High Standardized Residuals
 
 The model isolates several key cities with extremely high or low standardized residuals. A standardized residual above 3 is generally extremely problematic, and a standardized residual above 2 is somewhat problematic. To account for cities with similar dynamics to Denver and Colorado Springs, I attempted to exclude cities with extremely high standardized residuals, as that may indicate extremely different structural dynamics at play that cannot be encapsulated by the model. 
@@ -740,21 +752,26 @@ ggplot(std_resid_diag1_check, aes(x = year.x, y = .std.resid, color = city)) +
   geom_line()
 ```
 
-
+Ended up rejecting the method used to fix year residual skew because it would exclude vast swaths of data with very little improvement in results.
 
 ### Property Crime Predictor Check
 
 I did the same process to determine what variables should be incorporated or excluded for property crimes.
 ```{r}
-diag2 <- lm(property_crime_rate ~ pop_density + female_household + hs + 
+diag2_full <- lm(property_crime_rate ~ pop_density + female_household + hs + 
               res_stability + over_18 + white_percent +
    self_employed + unemployment + median_income + child_poverty + 
-     owner_occupied, data = reduced_database)
+     owner_occupied, data = reduced_database_property)
 
-backward_diag2 <- step(diag2)
+diag2_null <- lm(property_crime_rate ~ 1, data = reduced_database_property)
+
+backward_diag2 <- step(diag2_full)
+forward_diag2 <- step(diag2_null, direction = "forward", scope = list(
+  lower = diag2_null, upper = diag2_full))
 ```
 
-The backward selection process removed racial homogeneity (percent of population who is white) and percentage of population who owns their owhn home (owner occupied housing percentage).
+
+The backward selection process removed owner-occupied housing. Forward selection also excludes female-led household percents.
 
 #### Check Model Conditions
 
@@ -781,8 +798,8 @@ reduced_database_violent <- reduced_database %>%
          is.na(hs) == FALSE & is.na(res_stability) == FALSE & is.na(over_18) == FALSE & 
          is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
          is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE
-         & is.na(pop_density) == FALSE) %>% 
-  anti_join(cities_for_removal) # removing cities with substantially different dynamics from model.
+         & is.na(pop_density) == FALSE) # %>% 
+  # anti_join(cities_for_removal) # removing cities with substantially different dynamics from model.
 counts <- reduced_database_violent %>% 
   count(NAME, sort = TRUE)
 remove_missing <- counts %>% 
@@ -818,18 +835,20 @@ reduced_database_violent <- as.data.frame(reduced_database_violent)
 
 195 works
 
+1:75, 78:212 77
+
 
 ```{r}
 denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("population", "female_household", 
+                                  c("pop_density", "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
-                                                "child_poverty", "owner_occupied"), 
+                                                "unemployment", "median_income", 
+                                                "child_poverty"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 73, controls.identifier = c(1:71, 74:207), 
-         time.predictors.prior = 2011:2019, time.optimize.ssr = 2014:2019, 
+         treatment.identifier = 186, controls.identifier = c(1:184, 187:510), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
          time.plot = 2011:2019)
          
 ```
@@ -974,48 +993,50 @@ reduced_database_property <- reduced_database %>%
            is.na(female_household) == FALSE & is.na(hs) == FALSE & 
            is.na(res_stability) == FALSE & is.na(over_18) == FALSE & 
          is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
-         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE)
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE
+         & is.na(pop_density) == FALSE)
 counts <- reduced_database_property %>% 
   count(NAME, sort = TRUE)
 remove_missing <- counts %>% 
   filter (n < 9)
-reduced_database2 <- anti_join(reduced_database_property, remove_missing)
+reduced_database_property <- anti_join(reduced_database_property, remove_missing)
 
 ```
 
 
 
 ```{r}
-add_numbers <- reduced_database2 %>% 
+add_numbers <- reduced_database_property %>% 
   filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
   distinct(NAME) 
 
 add_numbers <- add_numbers %>% 
   mutate(id = 1:nrow(add_numbers))
 
-reduced_database2 <- full_join(reduced_database2, add_numbers, by = "NAME")
+reduced_database_property <- full_join(reduced_database_property, add_numbers, by = "NAME")
 ```
 
 
 ```{r remove-non-denver-colorado}
-no_colorado1 <- reduced_database2 %>% 
+reduced_database_property <- reduced_database_property %>% 
   filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
   mutate(id = as.numeric(id)) 
-no_colorado1 <- no_colorado1 %>% 
+reduced_database_property <- reduced_database_property %>% 
   mutate(year = as.numeric(year)) 
-no_colorado1 <- as.data.frame(no_colorado1)
+reduced_database_property <- as.data.frame(reduced_database_property)
 ```
 
 
 ```{r denver-prep}
-denver_prop_prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
+denver_prop_prep <- dataprep(foo = reduced_database_property,
+                             predictors = c("pop_density",  
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "median_income", 
-                                                "child_poverty", "owner_occupied"), 
+                                                "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 186, controls.identifier = c(1:184, 187:531), 
+         treatment.identifier = 186, controls.identifier = c(1:184, 187:503), 
          time.predictors.prior = 2011:2018, time.optimize.ssr = 2016:2019, 
          time.plot = 2011:2019)
          
@@ -1086,14 +1107,14 @@ weights_denver_prop_test <- full_join(weights_denver_prop_test, add_numbers, by 
 
 
 ```{r cspd-prep}
-cspd_prop_prep <- dataprep(foo = no_colorado1, predictors = c("population", "female_household", 
+cspd_prop_prep <- dataprep(foo = reduced_database_property, predictors = c("pop_density", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "median_income", 
-                                                "child_poverty", "owner_occupied"), 
+                                                "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 185, controls.identifier = c(1:184, 187:327, 329:531), 
+         treatment.identifier = 185, controls.identifier = c(1:184, 187:503), 
          time.predictors.prior = 2011:2018, time.optimize.ssr = 2016:2019, 
          time.plot = 2011:2019)
          
