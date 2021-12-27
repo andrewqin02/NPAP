@@ -812,7 +812,9 @@ reduced_database_violent <- anti_join(reduced_database_violent, remove_missing)
 
 ```{r}
 add_numbers_violent <- reduced_database_violent %>% 
-  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | 
+           NAME == "Aurora, Colorado" | NAME == "Fort Collins, Colorado" | 
+           state != "Colorado") %>% 
   distinct(NAME) 
 
 add_numbers_violent <- add_numbers_violent %>% 
@@ -823,7 +825,8 @@ reduced_database_violent <- full_join(reduced_database_violent, add_numbers_viol
 
 ```{r remove-non-denver-colorado}
 reduced_database_violent <- reduced_database_violent %>% 
-  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | state != "Colorado") %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | 
+           NAME == "Aurora, Colorado" | NAME == "Fort Collins, Colorado" | state != "Colorado") %>% 
   mutate(id = as.numeric(id)) 
 reduced_database_violent <- reduced_database_violent %>% 
   mutate(year = as.numeric(year)) 
@@ -840,7 +843,7 @@ reduced_database_violent <- as.data.frame(reduced_database_violent)
 
 ```{r}
 denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("pop_density", "female_household", 
+                                  c("population", "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "median_income", 
@@ -937,7 +940,7 @@ Although the graph comparing the synthetic control and Denver is somewhat worse 
 
 
 ```{r prep-co-springs}
-prep_cosprings <- dataprep(foo = no_colorado, predictors = c("population", 
+prep_cosprings <- dataprep(foo = reduced_database_violent, predictors = c("pop_density", 
                                                               "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
@@ -945,9 +948,8 @@ prep_cosprings <- dataprep(foo = no_colorado, predictors = c("population",
                                                 "child_poverty", "owner_occupied"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 185, controls.identifier = c(1:184, 187:259, 261:327, 
-                                                             329:514), 
-         time.predictors.prior = 2011:2018, time.optimize.ssr = 2016:2019, 
+         treatment.identifier = 186, controls.identifier = c(1:184, 189:512), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
          time.plot = 2011:2019)
 ```
 
@@ -983,6 +985,54 @@ Lawton, Oklahoma - 400
 Ann Arbor, Michigan - 328
 Chico, California - 36
 South Jordan, Utah - 478
+
+
+#### Aurora
+
+```{r}
+aurora_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("pop_density", "population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 185, controls.identifier = c(1:184, 189:512), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2017, 
+         time.plot = 2011:2019)
+         
+```
+
+200-202 are problematic.
+
+
+
+
+```{r}
+synth_aurora_violent <- synth(aurora_violent_prep)
+```
+
+```{r}
+path.plot(synth.res = synth_aurora_violent,
+dataprep.res = aurora_violent_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Aurora, CO","Synthetic Aurora")
+)
+```
+
+```{r}
+weights_aurora <- synth_aurora_violent$solution.w
+weights_aurora <- tibble(weight = weights_aurora, id = rownames(weights_aurora))
+weights_aurora <- weights_aurora %>% 
+  arrange(desc(weight)) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  full_join(add_numbers_violent, by = "id")
+```
+
+
+
 
 ## Synthetic Control Modelling for Property Crimes
 
