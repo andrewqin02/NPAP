@@ -551,23 +551,21 @@ reduced_database <- reduced_database %>%
 I created a full model and a null model, incorporating every predictor outside of population below. 
 
 ```{r test-model}
-diag1_full <- lm(violent_crime_rate ~ pop_density + female_household + hs + res_stability + over_18 + white_percent +
+diag1_full <- lm(violent_crime_rate ~ population + pop_density + female_household + hs + res_stability + over_18 + white_percent +
    self_employed + unemployment + median_income + child_poverty + owner_occupied + year, data = reduced_database)
 
 diag1_null <- lm(violent_crime_rate ~ 1, data = reduced_database)
 
 tidy(diag1_full)
 ```
-As we can see, coefficients related to female household percentage, median income, and year were generally nonsignificant with p-values above 0.05. I used a backward selection process using BIC to determine what variables should be excluded.
+As we can see, coefficients related to female household percentage, median income, and year were generally nonsignificant with p-values above 0.05. I used a backward selection process using AIC to determine what variables should be excluded.
 
 
 ```{r initial-model-step}
-backward_diag1 <- step(diag1_full, direction = "backward", k = log(2533)) # with BIC
-forward_diag1 <- step(diag1_null, direction = "forward", scope = list(
-  lower = diag1_null, upper = diag1_full), k = log(2533))
+backward_diag1 <- step(diag1_full, direction = "backward") # with AIC
 ```
 
-Both backward and forward selection concluded that child poverty, high school education, percentage of residents who are white, percent of owner-occupied buildings, unemployment rate, and rate of self-employed individuals should be kept.
+Backward selection concluded that median income should be removed from the model.
 
 
 #### Check Model Conditions
@@ -593,8 +591,9 @@ The residual plot clearly fans out, indicating that the linear model is likely n
 I tried a log transformation of the response variable to see if that may mitigate some of the problems with the fan shaped residual plot.
 
 ```{r test-model-log}
-log_diag1 <- lm(log(violent_crime_rate) ~ child_poverty + hs + owner_occupied 
-                + self_employed + white_percent + unemployment, data = reduced_database)
+log_diag1 <- lm(log(violent_crime_rate) ~ population + pop_density + female_household + 
+    hs + res_stability + over_18 + white_percent + self_employed + 
+    unemployment + child_poverty + owner_occupied + year, data = reduced_database)
 log_diag1_augment <- augment(log_diag1)
 
 log_diag1_augment <- log_diag1_augment %>% 
@@ -633,7 +632,7 @@ Critical Numbers:
 glance(log_diag1)
 ```
 
-Model R-squared value is 0.571, indicating that roughly 57.1% of the variation in violent crime rates is explainable by the mentioned predictors. 
+Model R-squared value is 0.627, indicating that roughly 62.7% of the variation in violent crime rates is explainable by the mentioned predictors. 
 
 Standardized Residual Plot:
 
@@ -941,10 +940,11 @@ Although the graph comparing the synthetic control and Denver is somewhat worse 
 
 ```{r prep-co-springs}
 prep_cosprings <- dataprep(foo = reduced_database_violent, predictors = c("pop_density", 
+                                                                          "population",
                                                               "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", "median_income", 
+                                                "unemployment", 
                                                 "child_poverty", "owner_occupied"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
@@ -986,7 +986,43 @@ Ann Arbor, Michigan - 328
 Chico, California - 36
 South Jordan, Utah - 478
 
+```{r prep-co-springs-true}
+prep_cosprings_true <- dataprep(foo = reduced_database_violent, predictors = c("pop_density", 
+                                                                          "population",
+                                                              "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 186, controls.identifier = c(205, 246, 435, 381), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2015:2018, 
+         time.plot = 2011:2019)
+```
 
+```{r synthetic-control-co-springs-true}
+synth_co_springs_true <- synth(prep_cosprings_true)
+```
+
+```{r plot-synthetic-cosprings-reduced}
+path.plot(synth.res = synth_co_springs_true,
+dataprep.res = prep_cosprings_true,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Colorado Springs","Synthetic Colorado Springs")
+)
+```
+
+```{r}
+weights <- synth_co_springs_true$solution.w
+weights <- tibble(weight = weights, id = rownames(weights))
+
+weights <- weights %>% 
+  arrange(desc(weight)) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  full_join(add_numbers_violent, by = "id")
+```
 #### Aurora
 
 ```{r}
@@ -994,14 +1030,13 @@ aurora_violent_prep <- dataprep(foo = reduced_database_violent, predictors =
                                   c("pop_density", "population", "female_household", 
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", "median_income", 
+                                                "unemployment", 
                                                 "child_poverty", "owner_occupied"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 185, controls.identifier = c(1:184, 189:512), 
-         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2017, 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2017:2019, 
          time.plot = 2011:2019)
-         
 ```
 
 200-202 are problematic.
