@@ -48,6 +48,9 @@ tpd_offenses <- read_csv("data/tallahasee.csv")
 cs_offenses <- read_csv("data/college_station.csv")
 ny_offenses <- read_csv("data/nypd.csv")
 ny_offenses_past <- read_csv("data/nypd_past.csv")
+mc_offenses20 <- read_csv("data/mc_offenses.csv")
+mc_offenses19 <- read_csv("data/mc_offenses19.csv")
+aurora_offenses <- read_csv("data/aurora_crime.csv")
 ```
 
 ### Wrangling
@@ -109,6 +112,15 @@ co_limited_violent <- co_offenses %>%
   mutate(time_period = case_when(
     date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
     date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+co_year_limit <- co_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+   mutate(time_period = case_when(
+    date >= as.Date("2019-07-01") & date < as.Date("2020-12-31") ~ "2019-20",
+    date >= as.Date("2020-07-01") & date < as.Date("2021-12-31") ~ "2020-21"
   )) %>% 
   filter(is.na(time_period) == FALSE)
 
@@ -1057,10 +1069,6 @@ cs_offenses <- cs_offenses %>%
                              OFFENSE_NAME == "Purse-snatching", 1, 0))
 
 
-cs_monthly_violent <- cs_offenses %>% 
-    filter(violent == 1) %>% 
-  count(my) %>% 
-  rename(fspd_n = n)
 
 cs_violent <- cs_offenses %>% 
   filter(violent == 1) %>% 
@@ -1154,12 +1162,74 @@ ny_property <- ny_offenses %>%
   filter(is.na(time_period) == FALSE)
 ```
 
+```{r mc-wrangling}
+mc_offenses19 <- mc_offenses19 %>% 
+  select(X3, X14)
+names(mc_offenses19)[1] <- "offense"
+names(mc_offenses19)[2] <- "date"
 
-```{r}
-ny_offenses %>% 
-  count(offense)
+mc_offenses20 <- mc_offenses20 %>% 
+  select(X4, X15)
+names(mc_offenses20)[1] <- "offense"
+names(mc_offenses20)[2] <- "date"
+
+mc_offenses <- full_join(mc_offenses19, mc_offenses20)
+
+mc_offenses <- na.omit(mc_offenses)
+
+mc_offenses$date <- str_split(mc_offenses$date, " ", 
+                                      simplify = TRUE)[,1] # Get rid of time
+
+dates <- str_split(mc_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+mc_offenses <- tibble(mc_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+mc_offenses <- mc_offenses %>% 
+  mutate(violent = if_else(
+    offense == "AGGRAVATED ASSAULT" | 
+      offense == "ROBBERY" | 
+      offense == "RAPE" | 
+      offense == "SODOMY" | 
+      offense == "MURDER & NONNEGLIGENT", 1, 0
+  ))
+
+mc_violent <- mc_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-07-01") & date < as.Date("2020-12-31") ~ "2019-20",
+    date >= as.Date("2020-07-01") & date < as.Date("2020-12-31") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE) 
+
+add_dates <- co_year_limit %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, mc_violent) %>% 
+  mutate(n = 0)
+
+mc_violent <- full_join(antijoin, mc_violent) %>% 
+  arrange(date)
+
+mc_monthly_violent <- mc_offenses %>% 
+  filter(violent == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+    my >= as.Date("2019-08-01") & my < as.Date("2019-12-31") ~ "2019-20",
+    my >= as.Date("2020-08-01") & my < as.Date("2020-12-31") ~ "2020-21")) %>% 
+  filter(is.na(time_period) == FALSE)
 ```
 
+```{r aurora-wrangling}
+aurora_offenses <- aurora_offenses %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+```
 
 
 

@@ -997,7 +997,7 @@ prep_cosprings_true <- dataprep(foo = reduced_database_violent, predictors = c("
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 186, controls.identifier = c(205, 246, 435, 381), 
-         time.predictors.prior = 2011:2018, time.optimize.ssr = 2015:2018, 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2012:2014, 
          time.plot = 2011:2019)
 ```
 
@@ -1039,7 +1039,6 @@ aurora_violent_prep <- dataprep(foo = reduced_database_violent, predictors =
          time.plot = 2011:2019)
 ```
 
-200-202 are problematic.
 
 
 
@@ -1066,7 +1065,53 @@ weights_aurora <- weights_aurora %>%
   full_join(add_numbers_violent, by = "id")
 ```
 
+```{r}
+aurora_violent_prep_true <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("pop_density", "population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 185, controls.identifier = c(447, 458, 469), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2017:2019, 
+         time.plot = 2011:2019)
+```
 
+
+
+
+
+```{r}
+synth_aurora_violent_true <- synth(aurora_violent_prep_true)
+```
+
+```{r}
+path.plot(synth.res = synth_aurora_violent_true,
+dataprep.res = aurora_violent_prep_true,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Aurora, CO","Synthetic Aurora")
+)
+```
+
+```{r}
+weights_aurora <- synth_aurora_violent_true$solution.w
+weights_aurora <- tibble(weight = weights_aurora, id = rownames(weights_aurora))
+weights_aurora <- weights_aurora %>% 
+  arrange(desc(weight)) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  full_join(add_numbers_violent, by = "id")
+```
+
+
+```{r experimenting-tables}
+synth.tables <- synth.tab(dataprep.res = aurora_violent_prep, synth.res = 
+                            synth_aurora_violent)
+
+synth.tables$tab.pred
+```
 
 
 ## Synthetic Control Modelling for Property Crimes
