@@ -36,7 +36,7 @@ crime_17 <- read_csv("fbi/2018_crimes_bycity.csv")
 crime_18 <- read_csv("fbi/2018_crimes_bycity.csv")
 crime_19 <- read_csv("fbi/2019_crimes_bycity.csv")
 crime_20 <- read_csv("fbi/2020_crimes_bycity.csv")
-
+crime_21 <- read_csv("fbi/2021_quarterly.csv")
 ```
 
 ## Crime Data Wrangling
@@ -62,6 +62,8 @@ crime_19 <- crime_19 %>%
   slice(1:8105)
 crime_20 <- crime_20 %>% 
   slice(1:7689)
+crime_21 <- crime_21 %>% 
+  slice(1:318)
 
 ```
 
@@ -115,7 +117,23 @@ names(crime_20)[9] <- names(crime_11)[9]
 crime_20 <- crime_20 %>% 
   mutate(year = "2020") %>% 
   fill(State, .direction = "down")
+
+crime_21 <- crime_21 %>% 
+  fill(Population, .direction = "down") %>% 
+  filter(City != "Atlanta" & City != "Mobile" & City != "Philadelphia") %>% 
+  mutate(Year = as.character(Year)) # All states with missing 2020 data 
+crime_21$State <- toupper(crime_21$State)
+names(crime_21)[3] <- "year"
+names(crime_21)[5] <- "Violent\ncrime"
+names(crime_21)[10] <- "Property\ncrime"
+names(crime_21)[6] <- "Murder and\nnonnegligent\nmanslaughter"
+names(crime_21)[7] <- "Forcible\nrape"
+names(crime_21)[9] <- "Aggravated\nassault"
+names(crime_21)[13] <- "Motor\nvehicle\ntheft"
+names(crime_21)[12] <- "Larceny-\ntheft"
+
 ```
+
 
 ```{r combine-data}
 all_crimes <- full_join(crime_11, crime_12)
@@ -126,7 +144,7 @@ all_crimes <- full_join(all_crimes, crime_16)
 all_crimes <- full_join(all_crimes, crime_17)
 all_crimes <- full_join(all_crimes, crime_18)
 all_crimes <- full_join(all_crimes, crime_19)
-all_crimes <- full_join(all_crimes, crime_20) #can solve forcible rape/rape1 problem by just changing rape1 name to forcible rape
+all_crimes <- full_join(all_crimes, crime_21) #can solve forcible rape/rape1 problem by just changing rape1 name to forcible rape
 ```
 
 ```{r wrangle-all-crimes}
@@ -490,6 +508,26 @@ all_crimes <- all_crimes %>%
 
 full_database <- left_join(all_crimes, full_acs, by = c("city", "state", "year"))
 ```
+
+```{r add-arbitrary-2020-2021-values}
+full_database_for_synth <- full_database %>% 
+  filter(is.na(land_area) == FALSE | year >= 2020) %>% 
+  arrange(city, state) %>% 
+  fill(NAME, .direction = "down") %>% 
+  fill(female_household, .direction = "down") %>% 
+  fill(hs, .direction = "down") %>% 
+  fill(res_stability, .direction = "down") %>% 
+  fill(over_18, .direction = "down") %>% 
+  fill(white_percent, .direction = "down") %>% 
+  fill(self_employed, .direction = "down") %>% 
+  fill(unemployment, .direction = "down") %>% 
+  fill(median_income, .direction = "down") %>% 
+  fill(received_snap, .direction = "down") %>% 
+  fill(child_poverty, .direction = "down") %>% 
+  fill(owner_occupied, .direction = "down") %>% 
+  fill(land_area, .direction = "down") 
+```
+
 
 ```{r save-work}
 write_csv(full_database, "data/crime_database.csv") #finished database creation
@@ -1383,3 +1421,140 @@ saveRDS(synth_denver_property,
 saveRDS(synth_denver_property_test, 
         file = "/Users/andrewqin02/Desktop/R/NPAP/data/denver_property_true.Rdata")
 ```
+
+
+## New Synthetic Analysis Incorporating 2020-2021 Data
+
+The UCR published data for the entire year of 2020 and the first 3 quarters of 2021, but unfortunately, did not publish quarterly disaggregated data for 2020. The ideal method would be to track the violent and property crime rates for the pre-treatment years of 2011-first half of 2020 and then track the violent and property crime rates for the post-treatment period of the second half of 2020 and first 3 quarters of 2021. Unfortunately, because we lack this data, I instead chose to use the quarterly UCR report and limit the 2020 data to the first 3 quarters, only incorporating one quarter from the post-treatment years. The only post-treatment crime rate will be from 2021 then. Additionally, because we lack census data, I extrapolated the most recent data (2019) to serve as predictor values for 2020 and 2021. Due to sheer lack of data, this model will not be close to perfect but may provide intriguing insights.
+
+```{r fix-damages-2}
+reduced_database <- full_database_for_synth %>% 
+  filter(population >= 85000) %>% 
+  filter(is.na(NAME) == FALSE)
+```
+
+
+```{r remove-duplicates-2, message = FALSE}
+for_removal <- reduced_database %>% 
+  filter(NAME == "Burbank, California") %>% 
+  filter(white_percent < 40)
+
+for_removal2 <- reduced_database %>% 
+  filter(NAME == "Mesquite, Texas") %>% 
+  filter(white_percent == 0.0)
+for_removal <- full_join(for_removal, for_removal2)
+
+for_removal2 <- reduced_database %>% 
+  filter(NAME == "Mountain View, California") %>% 
+  filter(white_percent > 48)
+for_removal <- full_join(for_removal, for_removal2)
+
+for_removal2 <- reduced_database %>% 
+  filter(NAME == "Plantation, Florida") %>% 
+  filter(white_percent > 90)
+for_removal <- full_join(for_removal, for_removal2)
+
+reduced_database <- anti_join(reduced_database, for_removal)
+```
+
+```{r create-pop-density-variable-2}
+reduced_database <- reduced_database %>% 
+  mutate(pop_density = population / land_area) %>% 
+  filter(is.na(violent_crime_rate) == FALSE) 
+
+reduced_database <- reduced_database %>% 
+  mutate(obs_num = 1:nrow(reduced_database))
+```
+
+
+### Violent Crimes
+
+
+```{r}
+reduced_database_violent <- reduced_database %>% 
+  filter(is.na(violent_crime_rate) == FALSE & is.na(female_household) == FALSE & 
+         is.na(hs) == FALSE & is.na(res_stability) == FALSE & is.na(over_18) == FALSE & 
+         is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE
+         & is.na(pop_density) == FALSE & is.na(property_crime_rate) == FALSE) # %>% 
+  # anti_join(cities_for_removal) # removing cities with substantially different dynamics from model.
+counts <- reduced_database_violent %>% 
+  count(NAME, sort = TRUE)
+remove_missing <- counts %>% 
+  filter (n < 11) #Key difference here - needs to be all 11 years from 2011-2021.
+reduced_database_violent <- anti_join(reduced_database_violent, remove_missing)
+```
+
+```{r}
+add_numbers_violent <- reduced_database_violent %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | 
+           NAME == "Aurora, Colorado" | NAME == "Fort Collins, Colorado" | 
+           state != "Colorado") %>% 
+  distinct(NAME) 
+
+add_numbers_violent <- add_numbers_violent %>% 
+  mutate(id = 1:nrow(add_numbers_violent))
+
+reduced_database_violent <- full_join(reduced_database_violent, add_numbers_violent, by = "NAME")
+```
+
+```{r remove-non-denver-colorado-2}
+reduced_database_violent <- reduced_database_violent %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" | 
+           NAME == "Aurora, Colorado" | NAME == "Fort Collins, Colorado" | state != "Colorado") %>% 
+  mutate(id = as.numeric(id)) 
+reduced_database_violent <- reduced_database_violent %>% 
+  mutate(year = as.numeric(year)) 
+reduced_database_violent <- as.data.frame(reduced_database_violent)
+```
+
+Denver = 26
+Aurora = 5
+Colorado Springs = 20
+Fort Collins = 35
+
+1:102
+
+#### Denver
+
+```{r}
+denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "pop_density", 
+                                    "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 26, controls.identifier = c(1:4, 6:19, 21:25, 27:34, 
+                                                            36:102), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2015:2020, 
+         time.plot = 2011:2021)
+         
+```
+
+
+```{r}
+synth_denver_violent <- synth(denver_violent_prep)
+```
+
+```{r}
+path.plot(synth.res = synth_denver_violent,
+dataprep.res = denver_violent_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+```{r}
+weights <- synth_denver_violent$solution.w
+weights <- tibble(weight = weights, id = rownames(weights))
+weights <- weights %>% 
+  arrange(desc(weight)) %>% 
+  mutate(id = as.numeric(id)) %>% 
+  full_join(add_numbers_violent, by = "id")
+```
+
+
