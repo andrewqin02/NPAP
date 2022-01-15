@@ -1647,6 +1647,10 @@ Xlab = "Year"
 ```
 
 
+#### Fort Collins
+
+
+
 ### Property Crimes
 
 #### Denver
@@ -1716,7 +1720,7 @@ synth_cspd_property <- synth(cspd_property_prep)
 ```{r}
 path.plot(synth.res = synth_cspd_property,
 dataprep.res = cspd_property_prep,
-Ylab = c("Violent Crime Rates"),
+Ylab = c("Property Crime Rates"),
 Xlab = c("Year"),
 Legend = c("Colorado Springs, CO","Synthetic Colorado Springs")
 )
