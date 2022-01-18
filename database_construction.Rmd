@@ -20,6 +20,7 @@ library(tm)
 library(broom)
 library(Synth)
 library(rms)
+library(SCtools)
 set.seed(460)
 ```
 
@@ -531,6 +532,7 @@ full_database_for_synth <- full_database %>%
 
 ```{r save-work}
 write_csv(full_database, "data/crime_database.csv") #finished database creation
+write_csv(full_database_for_synth, "data/crime_database_synth.csv")
 ```
 
 ## Wrangling Completed Database
@@ -1427,6 +1429,11 @@ saveRDS(synth_denver_property_test,
 
 The UCR published data for the entire year of 2020 and the first 3 quarters of 2021, but unfortunately, did not publish quarterly disaggregated data for 2020. The ideal method would be to track the violent and property crime rates for the pre-treatment years of 2011-first half of 2020 and then track the violent and property crime rates for the post-treatment period of the second half of 2020 and first 3 quarters of 2021. Unfortunately, because we lack this data, I instead chose to use the quarterly UCR report and limit the 2020 data to the first 3 quarters, only incorporating one quarter from the post-treatment years. The only post-treatment crime rate will be from 2021 then. Additionally, because we lack census data, I extrapolated the most recent data (2019) to serve as predictor values for 2020 and 2021. Due to sheer lack of data, this model will not be close to perfect but may provide intriguing insights.
 
+```{r, message = FALSE}
+full_database_for_synth <- read_csv("data/crime_database_synth.csv")
+```
+
+
 ```{r fix-damages-2}
 reduced_database <- full_database_for_synth %>% 
   filter(population >= 85000) %>% 
@@ -1672,7 +1679,7 @@ denver_property_prep <- dataprep(foo = reduced_database_violent, predictors =
 ```
 
 ```{r}
-synth_denver_property <- synth(denver_property_prep)
+synth_denver_property <- synth(denver_property_prep, optimxmethod = "All")
 ```
 
 ```{r}
@@ -1731,7 +1738,8 @@ Legend = c("Colorado Springs, CO","Synthetic Colorado Springs")
 gaps.plot(synth.res = synth_cspd_property,
 dataprep.res = cspd_property_prep,
 Ylab = "Property Crime Rate Gaps",
-Xlab = "Year"
+Xlab = "Year", 
+Ylim = c(-1000, 1000)
 )
 ```
 
@@ -1782,3 +1790,11 @@ Xlab = "Year"
 Aurora may also have experienced a greater increase in violent crime compared to the synthetic control. Both Aurora and Denver's property crimes should be tested with placebos.
 
 
+#### Plot Placebos Property Crimes
+
+```{r}
+placebos <- generate.placebos(denver_property_prep, synth_denver_property) ## Placebos
+```
+
+El Paso = Problem
+Check synth_runner package
