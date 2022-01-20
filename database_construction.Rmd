@@ -1794,15 +1794,30 @@ Aurora may also have experienced a greater increase in violent crime compared to
 
 ```{r}
 placebos <- generate.placebos(denver_property_prep, synth_denver_property) ## Placebos
+saveRDS(placebos, 
+        file = "/Users/andrewqin02/Desktop/R/NPAP/data/placebos.Rdata")
 ```
+
+
 
 El Paso = Problem
 Check synth_runner package
 
 ```{r}
-mspe.plot(placebos)
+test_results <- mspe.test(placebos)$test
+mspe.test(placebos, discard.extreme = TRUE, mspe.limit = 5)$p.val
 ```
 
+
+```{r plot-results}
+test_results <- test_results %>% 
+  filter(MSPE.ratios < 10000) #filtering out one massive outlier at Boca Raton
+ggplot(test_results, aes(x = MSPE.ratios)) + 
+  geom_histogram(binwidth = 2.5) +
+  xlim(0, 250) +
+  ylim(0, 20) + 
+  geom_vline(xintercept = 36.61, color = "red")
+```
 
 
 ```{r}
@@ -1814,7 +1829,8 @@ test_property_prep <- dataprep(foo = reduced_database_violent, predictors =
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 26, controls.identifier = c(1:4), 
+         treatment.identifier = 1, controls.identifier = c(2:4, 6:19, 21:25, 27:34, 
+                                                            36:102), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2016:2019, 
          time.plot = 2011:2021)
          
@@ -1823,3 +1839,28 @@ test_property_prep <- dataprep(foo = reduced_database_violent, predictors =
 ```{r}
 synth_test_property <- synth(test_property_prep, optimxmethod = "All")
 ```
+
+```{r}
+test_property_prep$Y0plot %*% synth_test_property$solution.w
+```
+
+
+```{r}
+y <- c(1574.2256)
+y_hat <- c(1855.660)
+mspe(y, y_hat)
+```
+
+```{r}
+79205.32 / 27463.05 
+```
+
+pre-treatment MSPE = mspe.placs (loss.v)
+loss.v = pre-treatment MSPE of treated unit
+
+post <- subset(tdf$df, year >= tdf$t1)
+
+
+denver_property_prep$Y0plot %*% synth_denver_property$solution.w
+
+
