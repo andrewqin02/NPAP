@@ -1,28 +1,77 @@
 ---
-title: "stat-report-2"
+title: "Statistical Report on Qualified Immunity"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
-## R Markdown
+## Setup
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r load-packages, message = FALSE}
+library(tidyverse)
+library(knitr)
+library(rvest)
+library(lubridate)
+library(infer)
+library(tm)
+library(broom)
+library(Synth)
+set.seed(460)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r load-data}
+co_offenses <- read_csv("data/crime.csv")
+wa_offenses <- read_csv("data/SPD_Crime_Data__2008-Present.csv")
+tx_offenses19 <- read_csv("data/houston_nibrs_2019.csv")
+tx_offenses20 <- read_csv("data/houston_nibrs_2020.csv")
+tx_offenses21 <- read_csv("data/houston_nibrs_2021.csv")
+cspd <- read_csv("data/Crime_Level_Data.csv")
+fspd_offenses <- read_csv("data/fspd_offenses.csv")
+nibrs_conversion <- read_csv("data/NIBRS_OFFENSE_TYPE.csv")
+champaign21 <- read_csv("data/2021_champaign.csv")
+champaign20 <- read_csv("data/2020_champaign.csv")
+champaign19 <- read_csv("data/2019_champaign.csv")
+austin_offenses <- read_csv("data/austin_offenses.csv")
+full_database <- read_csv("data/crime_database.csv")
+synth_complete <- readRDS("data/denver_violent_synth.Rdata") # Outdated synthetic control models
+synth_complete_test <- readRDS("data/denver_violent_true.Rdata")
+synth_denver_property <- readRDS("data/denver_property_synth.Rdata")
+synth_denver_property_test <- readRDS("data/denver_property_true.Rdata")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Ct law is effective July 1, 2021.
+NYC banned qualified immunity around March 2021.
+New Mexico ended qualified immunity 
+
+## Introduction and Background
+
+Qualified immunity is a court-established doctrine that shields government officials from personal liability for constitutional violations unless the officials violated clearly established laws (https://www.lawfareblog.com/what-qualified-immunity-and-what-does-it-have-do-police-reform). After the killing of George Floyd sparked movements against police violence around the country, many activists directed their attention towards qualified immunity as a subject of reform. Activists argued that qualified immunity prevents police officers from being held accountable for excessive uses of force within civil court. Supporters of qualified immunity argued that efforts to limit qualified immunity would prevent police officers from effectively performing their job out of fear of frivolous lawsuits. In this statistical report, we aim to provide preliminary data-driven insights on the effects of recently passed qualified immunity reform on violent and property crime rates in major urban jurisdictions.
+
+Four states have passed measures to limit qualified immunity: Colorado, Connecticut, New Mexico, and New York. Of those states, Colorado passed its reform the earliest, with its measure taking effect June 19, 2020. As a result, we decided to analyze Colorado crime data to determine the effects of qualified immunity on crime rates. In particular, our research question was as follows: Was the passage of qualified immunity reform in Colorado in June of 2020 correlated with significantly larger proportional increases in average daily violent and property crime incidents compared to increases in control jurisdictions? Because statewide data for 2020 and 2021 YTD from Colorado was not publicly available, we further narrowed the scope of our analysis to Denver, Colorado Springs, and Aurora, the three largest jurisdictions within Colorado.
+
+Although we attempt to establish some level of causation in this study through the use of a synthetic control method, we lack the volume of observational data needed to successfully establish causation. In particular, we are missing observations on several key lurking variables, including the effects of COVID on poverty rates in each jurisdiction, 2020 and 2021 census data, community attitudes towards policing as a result of the George Floyd protests, amidst several other control variables. Much of this data will only be released a few years from now, severely limiting the contours of the present analysis. However, due to the prescience of the qualified immunity question and the need for data within the debate, we decided to produce this preliminary report to at least illustrate the plausible effects of qualified immunity on crime rates in Colorado. None of the findings in this report should be interpreted as demonstrating a conclusive causal relationship between qualified immunity reform and crime.
+
+## Methodology
+
+In this study, we employed two different methodologies, one to increase the accuracy of the treatment date and the other to increase the total completeness of the data. In this report, we have incorporated findings from both methodologies with clear delineations as to which methodologies resulted in which findings. Both methodologies suffer from severe flaws, largely as a consequence of the lack of data, but we believe the insights from both methodologies may still be important in the discussion of qualified immunity and police accountability. Limitations will be more thoroughly discussed in the "Limitations" section of this report.
+
+In both methodologies, we employed to varying extents a synthetic control methodology as described by Abadie in his article "Using Synthetic Controls: Feasibility, Data Requirements, and Methodological Aspects." In a synthetic control method, researchers create a weighted average of jurisdictions and data points with the goal of minimizing the distance between the weighted average and the true jurisdiction's pre-treatment predictor and response values. The synthetic control method has the advantage of systematically identifying the strongest control jurisdictions based on predictor numbers over time, as opposed to manually identifying a geographically close jurisdiction and claiming the existence of sufficient connection to isolate the effects of the policy intervention, thus removing the effects of researcher bias from the analysis. Generally, the synthetic control method is then followed by a series of placebo synthetic control constructions to determine if the post-treatment to pre-treatment MSPE (root mean squared prediction error) ratio for the treated jurisdiction is extreme compared to those of placebo synthetic controls (https://mixtape.scunning.com/synthetic-control.html). If employed successfully, the synthetic control method can successfully prove the existence of a causal connection between different variables.
+
+### Methodology A: Synthetic Control as Selection Mechanism for Comparative Case Studies
+
+
+
+
+
+
+In practice, however, we faced critical data limitations that made it impossible to run the most statistically robust version of the synthetic control method. Because we lacked widely available 2020-21 post-treatment crime and census data (we only had that data for very specific jurisdictions), we could not create a series of placebo synthetic controls with post-treatment RMSPE values to compare the RMSPE ratio of the treated jurisdiction with. In addition, we only had access to a very small number of time periods (2011-19) and included an enormous sample of jurisdictions within the donor pool (many of which were substantially different from the treated jurisdictions) due to the rarity by which we could obtain data from police departments, significantly increasing the potential for bias. To continue the data analysis under these limitations, we primarily utilized the synthetic control methodology to identify similar jurisdictions to Denver or Colorado Springs and to provide weights for some of those jurisdictions.
+
+Because no database of city predictors and violent/property crime rates over 2011-2019 previously existed, we created a new database from scratch. Using ACS census data from 2011 to 2019, we recorded each jurisdiction's name, single female-led family household percentage, percentage of the population who graduated high school, percentage of the population who lived in the same house they lived in a year ago, percentage of the population who were over 18, percentage of the population who were white, percentage of the population who were self-employed, unemployment rate, median income, child poverty rate, and the percentage of housing units occupied by their owners. Each of these predictors had been identified as possible or significant predictors of crime within metropolitan and nonmetropolitan counties in a study published by researchers Wells and Weishelt (Explaining Crime in Metropolitan and Non-Metropolitan Counties). We then combined the city predictor data with violent crime, property crime, and population statistics from UCR Crime in the United States fact tables. Our final full database included over 83000 observations and 20 variables, each observation representing a jurisdiction at a particular year. We then filtered the database to only include cities above 50000 in population to remove small rural jurisdictions that would likely not match the dynamics of more urban areas like Denver. Additionally, we removed jurisdictions with missing data on violent/property crime rates or missing yearly data.
+
+Since publicly available data was not available for 2020-2021 from either the UCR or the ACS, we utilized the Synth package to create a synthetic control model for Denver and Colorado Springs from 2011-2019. We optimized the synthetic control model for 2016 to 2019 to obtain jurisdictions that could follow the most recent trends in both Denver and Colorado Springs. We then identified the top 5 jurisdictions with the highest weights and reran the synthetic control model with only those jurisdictions to recalculate the weights. With those identified control jurisdictions, we submitted requests for incident-level crime data from those departments for 2019-2021. When those requests were either unanswered or denied (as in the case of Ann Arbor Police Department), we removed the city from the synthetic control model and reran the model until we obtained at least four police departments with accessible incident level crime data whose plot looked at least somewhat similar to the plots of the treated jurisdictions (Denver and Colorado Springs).
+
+We subdivided all 2019-2021 incident-level crime data into property and violent crimes based on UCR definitions. In particular, murder and nonnegligent homicide, aggravated assault, robbery, and forcible rape (including sexual assault with an object, fondling, and forcible sodomy) were identified as violent crimes. We categorized larceny charges, burglary, damage/destruction of property, arson, shoplifting, pocket-picking, and motor vehicle theft charges as property crimes. We calculated the daily numbers of violent and property offenses for June of 2019 to June of 2020 (before qualified immunity reform) and June of 2020 to June of 2021 (after qualified immunity reform) in control and treated jurisdictions. We then subtracted the daily numbers of violent and property offenses in the 2019-20 time period from the 2020-21 time period and divided by the total number of violent or property offenses in the 2019-20 time period to make the daily numbers of violent and property crimes proportionate to each jurisdiction's respective crime numbers. Finally, we created a bootstrapped null distribution assuming no true difference between the daily increases of the synthetic jurisdiction compared to Denver or Colorado Springs and calculated a p-value based on the probability of observing the real difference or greater between Denver/Colorado Springs and the respective synthetic control difference based on the null distribution.
+
+This methodology had a few other critical limitations. First, because of the lack of 2020 and 2021 census data, we could only identify jurisdictions similar to either Denver or Colorado Springs until 2019 which is no guarantee that those similarities in control predictors continued until 2020 and 2021. In addition, since we did not have access to UCR data for 2020 and 2021, we had to use 2011-2019 weights in 2020 and 2021 calculations, which may extrapolate beyond the capabilities of the synthetic control, since the trends between the predictor variables and the responsive crime rates may not continue into 2020 and 2021 (which also introduced other variables, such as the George Floyd protests, that influenced crime rates). Second, because of the several denied requests (especially from Ann Arbor and Clarksville Police Departments), we were forced to rely partially on convenience sampling in order to successfully carry out the study. Despite this, the plots comparing the synthetic control property/violent crime rates with the Denver property/violent crime rates look strong enough to indicate that the synthetic controls at least partially match the crime trends of the treated jurisdictions even when certain jurisdictions were removed due to lack of data. Third, because we needed to determine if the increases between the 2019-20 time period and 2020-21 time period were significantly greater than increases in control jurisdictions, we were forced to employ a test where we subtracted daily crimes in one time period from daily crimes in another time period. This method may have substantially exaggerated the standard deviation of violent and property crimes, since daily fluctuations in crime do not remain constant over the course of a year. The test may have been more successful on a monthly level, but we did not have enough monthly difference data to successfully arrive at statistical conclusions through simulation. Fourth, because we had to standardize the daily crime numbers by dividing crime numbers from some relative figure for each jurisdiction (in this case, the total number of offenses in the 2019-20 time period), smaller jurisdictions disproportionately influenced the variance of the synthetic control, since daily fluctuations of 1-2 offenses were much greater when standardized compared to larger jurisdictions. See Appendix 1 for further details.
