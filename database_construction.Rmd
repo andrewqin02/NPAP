@@ -1554,14 +1554,14 @@ denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors =
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 25, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
                                                             95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2017:2019, 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2011:2019, 
          time.plot = 2011:2021)
          
 ```
 
 
 ```{r}
-synth_denver_violent <- synth(denver_violent_prep)
+synth_denver_violent <- synth(denver_violent_prep, optimxmethod = "All")
 ```
 
 ```{r}
@@ -1598,7 +1598,7 @@ cspd_violent_prep <- dataprep(foo = reduced_database_violent, predictors =
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 20, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
                                                             95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2016:2019, 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2011:2019, 
          time.plot = 2011:2021)
          
 ```
@@ -1642,7 +1642,7 @@ aurora_violent_prep <- dataprep(foo = reduced_database_violent, predictors =
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 5, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
                                                             95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2016:2019, 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2011:2019, 
          time.plot = 2011:2021)
          
 ```
@@ -1731,7 +1731,7 @@ cspd_property_prep <- dataprep(foo = reduced_database_violent, predictors =
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 20, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
                                                             95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2016:2019, 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
 ```
@@ -1762,6 +1762,21 @@ Ylim = c(-1000, 1000)
 
 Markedly, the synthetic control model for Colorado Springs displays no such increase in property crimes. Additionally, the synthetic control follows Colorado Springs' property crime numbers remarkably well (with gaps only hitting a maximum of 400 in terms of property crime rates, far better than the thousands in the context of Denver). The control also follows Colorado Springs' numbers throughout the entire period. 
 
+```{r calculate-mspe-cspd}
+est2 <- cspd_property_prep$Y0plot %*% synth_cspd_property$solution.w
+est2 <- est2[c(10, 11)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Colorado Springs, Colorado" & year >= 2020) %>% 
+  select(property_crime_rate) %>% 
+  pull()
+
+mspe_ratio_cspd <- cvTools::mspe(est2, real) / synth_cspd_property$loss.v
+mspe_ratio_cspd <- mspe_ratio_cspd[1]
+l_cspd <- synth_cspd_property$loss.v
+l_cspd <- l_cspd[1]
+
+```
+
 #### Aurora
 
 
@@ -1776,7 +1791,7 @@ aurora_property_prep <- dataprep(foo = reduced_database_violent, predictors =
          "id", time.variable = "year", unit.names.variable = "NAME", 
          treatment.identifier = 5, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
                                                             95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2016:2019, 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
 ```
@@ -1813,7 +1828,7 @@ real <- reduced_database_violent %>%
   select(property_crime_rate) %>% 
   pull()
 
-mspe_ratio <- mspe(est, real) / synth_aurora_property$loss.v
+mspe_ratio <- cvTools::mspe(est, real) / synth_aurora_property$loss.v
 mspe_ratio <- mspe_ratio[1]
 l <- synth_aurora_property$loss.v
 l <- l[1]
@@ -1823,14 +1838,14 @@ l <- l[1]
 #### Plot Placebos Property Crimes
 
 ```{r gen-placebos}
-placebos2 <- generate.placebos(denver_property_prep, synth_denver_property) ## Placebos
+placebos3 <- generate.placebos(denver_property_prep, synth_denver_property) ## Placebos
 saveRDS(placebos2, 
-       file = "/Users/andrewqin02/Desktop/R/NPAP/data/placebos2.Rdata")
+       file = "/Users/andrewqin02/Desktop/R/NPAP/data/placebos3.Rdata")
 ```
 
 ```{r denver-placebo-results}
-test_results <- SCtools::mspe.test(placebos2)$test
-SCtools::mspe.test(placebos2, discard.extreme = TRUE, mspe.limit = 5)$p.val
+test_results <- SCtools::mspe.test(placebos3)$test
+SCtools::mspe.test(placebos3, discard.extreme = TRUE, mspe.limit = 5)$p.val
 ```
 
 ```{r plot-results}
@@ -1856,7 +1871,7 @@ n / nrow(test_results_aurora)
 
 P-value without removing jurisdictions with significantly greater MSPEs is 0.04.
 
-```{r}
+```{r p-value-aurora}
 extremes <- which(placebos2$mspe.placs >= 5 * l) # l = Aurora loss.v value 
 unit.names <- placebos2$names.and.numbers$unit.names[extremes]
 unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
@@ -1871,11 +1886,30 @@ n <- test_results_aurora_lim %>%
   nrow()
 n / nrow(test_results_aurora_lim)  # Find p-value again
 
-# Results in too few for analysis - roughly only 18 observations because fit for 2016-2019 is incredible for Aurora.
 ```
 
 
 P-value when removing jurisdictions with pre-treatment MSPEs 5x or more greater than the pre-treatment MSPEs 
+
+```{r p-value-cspd}
+extremes <- which(placebos2$mspe.placs >= 5 * l_cspd) # l = Aurora loss.v value 
+unit.names <- placebos2$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_cspd_lim <- test_results %>% 
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_cspd_lim)[1] <- "ratios"
+n <- test_results_cspd_lim %>% 
+  filter(ratios >= mspe_ratio_cspd) %>% 
+  nrow()
+n / nrow(test_results_cspd_lim)  # Find p-value again
+
+```
+
+P-value is high for Colorado Springs.
+
 
 pre-treatment MSPE = mspe.placs (loss.v)
 loss.v = pre-treatment MSPE of treated unit
@@ -1903,9 +1937,9 @@ test_property_prep <- dataprep(foo = reduced_database_violent, predictors =
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 67, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:66, 68:93, 
+         treatment.identifier = 57, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:56, 58:93, 
                                                             95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2016:2019, 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
 ```
@@ -1919,7 +1953,7 @@ path.plot(synth.res = synth_test_property,
 dataprep.res = test_property_prep,
 Ylab = c("Violent Crime Rates"),
 Xlab = c("Year"),
-Legend = c("Oceanside, CA","Synthetic Oceanside")
+Legend = c("Madison, WI","Synthetic Madison")
 )
 
 # Generate placebos command didn't make a mistake; instead, because the model performs exceptionally well over optimization time period, the pre-MSPE value is exceptionally low. This may be removed from the model.
@@ -1930,4 +1964,9 @@ Legend = c("Oceanside, CA","Synthetic Oceanside")
 SCtools::mspe.test(placebos)
 ```
 
+```{r}
+synth.tables <- synth.tab(dataprep.res = test_property_prep, 
+                          synth.res = synth_test_property)
+synth.tables$tab.pred
+```
 
