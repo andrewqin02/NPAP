@@ -4,7 +4,8 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, 
+                      fig.width = 5, fig.height = 3)
 ```
 
 ## Setup
@@ -18,32 +19,27 @@ library(infer)
 library(tm)
 library(broom)
 library(Synth)
+library(SCtools)
 set.seed(460)
 ```
 
 ```{r load-data}
-co_offenses <- read_csv("data/crime.csv")
-wa_offenses <- read_csv("data/SPD_Crime_Data__2008-Present.csv")
-tx_offenses19 <- read_csv("data/houston_nibrs_2019.csv")
-tx_offenses20 <- read_csv("data/houston_nibrs_2020.csv")
-tx_offenses21 <- read_csv("data/houston_nibrs_2021.csv")
-cspd <- read_csv("data/Crime_Level_Data.csv")
-fspd_offenses <- read_csv("data/fspd_offenses.csv")
-nibrs_conversion <- read_csv("data/NIBRS_OFFENSE_TYPE.csv")
-champaign21 <- read_csv("data/2021_champaign.csv")
-champaign20 <- read_csv("data/2020_champaign.csv")
-champaign19 <- read_csv("data/2019_champaign.csv")
-austin_offenses <- read_csv("data/austin_offenses.csv")
-full_database <- read_csv("data/crime_database.csv")
-synth_complete <- readRDS("data/denver_violent_synth.Rdata") # Outdated synthetic control models
-synth_complete_test <- readRDS("data/denver_violent_true.Rdata")
-synth_denver_property <- readRDS("data/denver_property_synth.Rdata")
-synth_denver_property_test <- readRDS("data/denver_property_true.Rdata")
+reduced_database_violent <- read_csv("data/database.csv")
+placebos3 <- readRDS("data/placebos3.Rdata") # Property crime version
+placebos4 <- readRDS("data/placebos4.Rdata") # Violent crime version
+
+test_results2 <- mspe.test(placebos4)$test
+test_results <- mspe.test(placebos3)$test # set up property crime one here as well
 ```
 
-Ct law is effective July 1, 2021.
-NYC banned qualified immunity around March 2021.
-New Mexico ended qualified immunity 
+```{r basic-wrangling}
+
+reduced_database_violent <- reduced_database_violent %>% 
+  mutate(id = as.numeric(id)) %>% 
+  mutate(year = as.numeric(year)) 
+reduced_database_violent <- as.data.frame(reduced_database_violent)
+```
+
 
 ## Introduction and Background
 
@@ -101,23 +97,13 @@ The synthetic control methodology that we employed suffered from several limitat
 
 Second, the time of the treatment is not effectively accounted for by the synthetic control methodology. The passage of the qualified immunity bill in Colorado occurred in the middle of 2020; however, we do not have quarterly data by which we could isolate the 2 quarters of 2020 without the influence of the policy intervention from the 2 quarters influenced by the intervention. Instead, we simply sort 2020 and 2021 as broadly falling under the post-treatment time frame, operating on the assumption that if the qualified immunity legislation affected violent and property crime rates in the Colorado jurisdictions, the increase in violent and property crime rates for the whole of 2020 would be greater than those of treated jurisdictions. Unfortunately, such an assumption is not necessarily true, as 2020 introduced a series of different factors, ranging from COVID to the George Floyd protests, each of which influenced  jurisdictions' crime rates in unknown ways. As a result, we are hesitant to derive a causal conclusion from any of our analysis; our findings could very well be interpreted in several different lights, including that COVID impacted Colorado jurisdictions' crime rates harder than other jurisdictions, or that police agencies in Colorado passed 2020 policies different from those of other jurisdictions. We attempt to solve this problem in Methodology B at the cost of other significant methodological limitations.
 
+Third, in an ideal synthetic control, we would have a wealth of years both before and after the treatment to evaluate. Unfortunately, due to the recency of the legislation and the inability to divide years into quarterly data, we only had a total of 2 post-treatment time periods to evaluate. This may limit our insights, as a single year of increased property or violent crime rates in one of the treated jurisdictions would skew the mean post-treatment MSPE substantially, even if such a year occurred merely from chance. Placebo testing should be able to diminish the influence of chance in the analysis, but having more post-treatment time periods to calculate the MSPE would allow the analysis to be more reliable.
 
+### Methodology B: Synthetic Control as Comparative Case Study Selection
 
+Our second methodology was employed before the release of 2020 and 2021 data by the UCR and was meant to serve as a workaround to normal synthetic analysis. AS a result, the second methodology suffers from severe limitations, many of which could invalidate the analysis entirely. Regardless, we include the results from Methodology B, as the methodology's figures and results still provide some insight onto what a methodology that took the exact day of treatment could conclude.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+In our second methodology, we examined violent and property crime rates in two treated jurisdictions: Denver and Colorado Springs. In selecting possible control jurisdictions, we waived the requirements for 2020 and 2021 crime data, as such data was not relevant for the analysis. We additionally only filtered for jurisdictions greater than 50000 in population, as we only had access to a small number of time periods but an enormous sample of jurisdictions within the donor pool. This led to many nonsimilar jurisdictions being included in the analysis, significantly increasing the potential for bias. 
 
 In practice, however, we faced critical data limitations that made it impossible to run the most statistically robust version of the synthetic control method. Because we lacked widely available 2020-21 post-treatment crime and census data (we only had that data for very specific jurisdictions), we could not create a series of placebo synthetic controls with post-treatment RMSPE values to compare the RMSPE ratio of the treated jurisdiction with. In addition, we only had access to a very small number of time periods (2011-19) and included an enormous sample of jurisdictions within the donor pool (many of which were substantially different from the treated jurisdictions) due to the rarity by which we could obtain data from police departments, significantly increasing the potential for bias. To continue the data analysis under these limitations, we primarily utilized the synthetic control methodology to identify similar jurisdictions to Denver or Colorado Springs and to provide weights for some of those jurisdictions.
 
@@ -128,3 +114,591 @@ Since publicly available data was not available for 2020-2021 from either the UC
 We subdivided all 2019-2021 incident-level crime data into property and violent crimes based on UCR definitions. In particular, murder and nonnegligent homicide, aggravated assault, robbery, and forcible rape (including sexual assault with an object, fondling, and forcible sodomy) were identified as violent crimes. We categorized larceny charges, burglary, damage/destruction of property, arson, shoplifting, pocket-picking, and motor vehicle theft charges as property crimes. We calculated the daily numbers of violent and property offenses for June of 2019 to June of 2020 (before qualified immunity reform) and June of 2020 to June of 2021 (after qualified immunity reform) in control and treated jurisdictions. We then subtracted the daily numbers of violent and property offenses in the 2019-20 time period from the 2020-21 time period and divided by the total number of violent or property offenses in the 2019-20 time period to make the daily numbers of violent and property crimes proportionate to each jurisdiction's respective crime numbers. Finally, we created a bootstrapped null distribution assuming no true difference between the daily increases of the synthetic jurisdiction compared to Denver or Colorado Springs and calculated a p-value based on the probability of observing the real difference or greater between Denver/Colorado Springs and the respective synthetic control difference based on the null distribution.
 
 This methodology had a few other critical limitations. First, because of the lack of 2020 and 2021 census data, we could only identify jurisdictions similar to either Denver or Colorado Springs until 2019 which is no guarantee that those similarities in control predictors continued until 2020 and 2021. In addition, since we did not have access to UCR data for 2020 and 2021, we had to use 2011-2019 weights in 2020 and 2021 calculations, which may extrapolate beyond the capabilities of the synthetic control, since the trends between the predictor variables and the responsive crime rates may not continue into 2020 and 2021 (which also introduced other variables, such as the George Floyd protests, that influenced crime rates). Second, because of the several denied requests (especially from Ann Arbor and Clarksville Police Departments), we were forced to rely partially on convenience sampling in order to successfully carry out the study. Despite this, the plots comparing the synthetic control property/violent crime rates with the Denver property/violent crime rates look strong enough to indicate that the synthetic controls at least partially match the crime trends of the treated jurisdictions even when certain jurisdictions were removed due to lack of data. Third, because we needed to determine if the increases between the 2019-20 time period and 2020-21 time period were significantly greater than increases in control jurisdictions, we were forced to employ a test where we subtracted daily crimes in one time period from daily crimes in another time period. This method may have substantially exaggerated the standard deviation of violent and property crimes, since daily fluctuations in crime do not remain constant over the course of a year. The test may have been more successful on a monthly level, but we did not have enough monthly difference data to successfully arrive at statistical conclusions through simulation. Fourth, because we had to standardize the daily crime numbers by dividing crime numbers from some relative figure for each jurisdiction (in this case, the total number of offenses in the 2019-20 time period), smaller jurisdictions disproportionately influenced the variance of the synthetic control, since daily fluctuations of 1-2 offenses were much greater when standardized compared to larger jurisdictions. See Appendix 1 for further details.
+
+## Testing and Results
+
+In this section, we will discuss the synthetic control diagnostics and MSPE test results for each of the 6 synthetic controls. Note that both population and population density were included as predictors, as both of them were found to be important by model selection.
+
+### Synthetic Controls for Violent Crime
+
+#### Denver: 
+
+We began with Denver, the largest jurisdiction in Colorado. Below, we included the graph comparing the violent crime rates of the synthetic jurisdiction and Denver itself. 
+
+```{r prep-denver-violent}
+denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "pop_density", # Kept population density
+                                    "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 25, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
+                                                            95:96), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, # Optimized 2012-19
+         time.plot = 2011:2021)
+         
+```
+
+```{r synth-denver-violent}
+synth_denver_violent <- synth(denver_violent_prep, optimxmethod = "All")
+```
+
+```{r path-plot-denver}
+path.plot(synth.res = synth_denver_violent,
+dataprep.res = denver_violent_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+The synthetic control is relatively strong with a pre-treatment MSPE value of 2138.568, as computed by the `Synth` package over the years of 2012-2019. As expected, synthetic Denver roughly follows the trends of Denver up until about 2016. In 2017, observed Denver's violent crime rate increases as the synthetic's decreases, causing observed Denver's violent crime rates to be greater than those of Synthetic Denver for the next few years up until 2021. The trends on the graph are not perfectly parallel; however, Denver's pre-treatment MSPE is `r synth_denver_violent$loss.v`, indicating a strong fit for the data. 
+
+```{r create-table}
+denver_table <- synth.tab(dataprep.res = denver_violent_prep, 
+                             synth.res = synth_denver_violent)
+denver_table$tab.pred
+```
+
+```{r display-denver-table}
+denver_table$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  select(w.weights, unit.names) %>% 
+  slice(1:10)
+```
+
+Table 2 indicates that the synthetic control matches the predictor values of observed Denver almost perfectly, even in terms of population and population density despite the sample means significantly deviating from those of Denver. When examining the weights (as found in Table 3), we can see that most weights are around 0, a sign of a strong synthetic control fit. We also see that Seattle, Salt Lake City, and Dallas comprise almost 90% of the model alone. 
+
+After calculating over 90 different placebo synthetic controls, we found that Denver's MSPE ratio was nonsignificant at the 1%, 5%, or 10% level. In particular, we found that when excluding jurisdictions with pre-treatment MSPEs more than 5x greater than the pre-treatment MSPE of Denver, more than 40% of the placebo synthetic controls had MSPE ratios greater than that of Denver. Thus, the data does not provide sufficient evidence to indicate that Denver's violent crime rate in 2020 or 2021 was significantly different from those of synthetic control jurisdictions.
+
+#### Colorado Springs
+
+```{r cspd-violent-prep}
+cspd_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("pop_density", "population", #Keep both because allows for longer tracking 
+                                    "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 20, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
+                                                            95:96), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
+         time.plot = 2011:2021)
+         
+```
+
+
+```{r synth-cspd-violent}
+synth_cspd_violent <- synth(cspd_violent_prep, optimxmethod = "All")
+```
+
+```{r plot-cspd}
+path.plot(synth.res = synth_cspd_violent,
+dataprep.res = cspd_violent_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Colorado Springs, CO","Synthetic Colorado Springs")
+)
+```
+
+```{r create-table-cspd}
+cspd_table <- synth.tab(dataprep.res = cspd_violent_prep, 
+                             synth.res = synth_cspd_violent)
+cspd_table$tab.pred
+```
+
+```{r display-cspd-table}
+cspd_table$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  select(w.weights, unit.names)
+```
+
+The synthetic control for Colorado Springs is exceptionally strong, with a pre-treatment MSPE of `r synth_cspd_violent$loss.v`, even lower than that of Denver. Similar to Denver, per table x, Colorado Springs' predictor values match exceptionally well with those of the synthetic jurisdiction, with the sole exception of unemployment rate, which is about 2% off. Nevertheless, given that the synthetic control tracks Colorado Springs so thoroughly, we find it appropriate to proceed with the given model.
+
+```{r calculate-mspe-cspd-violent}
+est <- cspd_violent_prep$Y0plot %*% synth_cspd_violent$solution.w
+est <- est[c(10, 11)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Colorado Springs, Colorado" & year >= 2020) %>% 
+  select(violent_crime_rate) %>% 
+  pull()
+
+mspe_v_cspd <- cvTools::mspe(est, real) / synth_cspd_violent$loss.v
+mspe_v_cspd <- mspe_v_cspd[1]
+l_cspd <- synth_cspd_violent$loss.v
+l_cspd <- l_cspd[1]
+
+extremes <- which(placebos4$mspe.placs >= 5 * l_cspd) # l = CSPD loss.v value
+unit.names <- placebos4$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_cspd_lim <- test_results2 %>% 
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_cspd_lim)[1] <- "ratios"
+n <- test_results_cspd_lim %>% 
+  filter(ratios >= mspe_v_cspd) %>% 
+  nrow()
+p <- n / nrow(test_results_cspd_lim)  # Find p-value again
+```
+
+Using the same placebos generated for Denver (because we are using the same control jurisdictions), we found that Colorado Springs' MSPE ratio of `r round(mspe_v_cspd, 3)` was smaller than 90% of placebo jurisdictions after removing placebo jurisdictions with pre-treatment MSPEs 5x greater than Colorado Springs'. The data does not provide sufficient evidence to indicate that Colorado Springs' violent crime rates in 2020 and 2021 were significantly different from those of control jurisdictions.
+
+#### Aurora
+
+```{r}
+aurora_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "pop_density",
+                                    "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 5, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
+                                                            95:96), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
+         time.plot = 2011:2021)
+         
+```
+
+
+```{r}
+synth_aurora_violent <- synth(aurora_violent_prep, optimxmethod = "All")
+```
+
+```{r}
+path.plot(synth.res = synth_aurora_violent,
+dataprep.res = aurora_violent_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Aurora, CO","Synthetic Aurora")
+)
+```
+
+```{r gaps-plot-aurora}
+
+gaps.plot(synth.res = synth_aurora_violent,
+dataprep.res = aurora_violent_prep,
+Ylab = "Violent Crime Rate Gaps",
+Xlab = "Year"
+)
+```
+
+```{r create-table-aurora}
+aurora_table <- synth.tab(dataprep.res = aurora_violent_prep, 
+                             synth.res = synth_aurora_violent)
+aurora_table$tab.pred
+```
+
+```{r display-aurora-table}
+aurora_table$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  select(w.weights, unit.names) %>% 
+  slice(1:10)
+```
+
+Despite the fact that Aurora's synthetic control matches its predictor values extremely well, the graph of Aurora's synthetic control makes it clear that Aurora's synthetic control is a weak fit for the data. While Aurora experiences a large uptick in violent crime in 2016 and 2017, the synthetic control experiences no such uptick. Aurora's pretreatment MSPE is also extremely high with a value of `r round(synth_aurora_violent$loss.v, 3)`, almost 20 times that of Colorado Springs. We find it unlikely that insights derived from this synthetic control will be helpful, but we run the significance test regardless.
+
+
+```{r p-value-aurora}
+est <- aurora_violent_prep$Y0plot %*% synth_aurora_violent$solution.w
+est <- est[c(10, 11)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Aurora, Colorado" & year >= 2020) %>% 
+  select(violent_crime_rate) %>% 
+  pull()
+
+mspe_ratio <- cvTools::mspe(est, real) / synth_aurora_violent$loss.v
+mspe_ratio <- mspe_ratio[1]
+l <- synth_aurora_violent$loss.v
+l <- l[1]
+
+extremes <- which(placebos4$mspe.placs >= 5 * l) # l = Aurora loss.v value 
+unit.names <- placebos4$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_aurora_lim <- test_results2 %>% 
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_aurora_lim)[1] <- "ratios"
+n <- test_results_aurora_lim %>% 
+  filter(ratios >= mspe_ratio) %>% 
+  nrow()
+p2 <- n / nrow(test_results_aurora_lim)  # Find p-value again
+
+```
+
+We find that when calculating the MSPE ratio of Aurora and comparing with placebos, the MSPE ratio is not significant at the 1%, 5%, or 10% level. When excluding placebos with pre-treatment MSPEs over 5x greater than that of Aurora, about 18.6% of the placebo synthetic controls have MSPE ratios greater than that of Aurora. It is plausible that if we further examined whether each placebo synthetic control's large MSPE ratio was from higher than expected violent crime rates or lower than expected violent crime rates (functionally turning the test into a one-sided test), Aurora's increase may become significant. However, given that Aurora's synthetic control is already so weak, we do not feel it would be valuable to conduct such an analysis.
+
+#### Placebos for Violent Crimes
+
+As we noted earlier, we generated over 90 different placebo synthetic controls with the same settings as the original synthetic control and compiled all the MSPE ratios from each placebo synthetic control into a single dataset for significance testing. We would like to take a moment to comment on these placebos.
+
+Below, we visualized these placebos' MSPE ratios and noted their summary statistics.
+
+
+```{r summary-stats-placebos}
+test_results2 %>% 
+  summarise(mean = mean(MSPE.ratios), 
+            sd = sd(MSPE.ratios), 
+            median = median(MSPE.ratios))
+```
+
+```{r}
+test_results2 %>% 
+  filter(unit != "Denver, Colorado") %>% 
+ggplot(aes(x = MSPE.ratios)) + 
+  geom_histogram(color = "black") +
+  xlim(0, 250) +
+  ylim(0, 20) + 
+  geom_vline(xintercept = mspe_ratio, color = "red") + 
+  geom_vline(xintercept = mspe_v_cspd, color = "steelblue") + 
+  geom_vline(xintercept = 3.148) + 
+  labs(title = "Distribution of Placebo MSPE Ratios", 
+       x = "MSPE Ratios", 
+       y = "Count")# Denver's value
+```
+
+As the histogram displays, most placebo MSPE ratios are centered at 0-10 with the exception of one placebo MSPE ratio above 200. That MSPE ratio represents Evansville and likely occurred from an exceptionally good fit with the data in pretreatment years with some declining fit in 2020. The outlier will be further explored in Appendix 2; however, we do not see a good reason to remove the outlier, as removing the outlier would not change the significance of any of our results.
+
+Re-visualizing without Evansville and reducing the binwidth to further detail the smaller MSPE ratios in the spectrum, we arrive at the second graph below.
+
+```{r summary-stats-placebos-2}
+test_results2 %>% 
+  filter(MSPE.ratios <= 60) %>% 
+  summarise(mean = mean(MSPE.ratios), 
+            sd = sd(MSPE.ratios), 
+            median = median(MSPE.ratios))
+```
+
+```{r}
+test_results2 %>% 
+  filter(unit != "Denver, Colorado") %>% 
+ggplot(aes(x = MSPE.ratios)) + 
+  geom_histogram(color = "black", binwidth = 0.50) +
+  xlim(0, 45) +
+  ylim(0, 20) + 
+  geom_vline(xintercept = mspe_ratio, color = "red") + 
+  geom_vline(xintercept = mspe_v_cspd, color = "steelblue") + 
+  geom_vline(xintercept = 3.148) + 
+  labs(title = "Distribution of Placebo MSPE Ratios without Evansville", 
+       x = "MSPE Ratios", 
+       y = "Count") # Denver's value
+```
+
+As we can see, Colorado Springs and Denver are both squarely within the center of the distribution. Aurora's MSPE ratio is larger than most of the MSPE ratios within the dataset, but the ratio is still smaller than enough placebos to not constitute statistically significant evidence.
+
+We display these placebos to give the reader an idea of what synthetic controls we ended up creating, any outliers or flaws within the synthetic controls, as well as where the treated jurisdictions lie on the distribution.
+
+#### Overall Results for Violent Crime
+
+In terms of violent crime, we created three different synthetic controls, one for each of the three treated jurisdictions in Colorado. After generating over 90 placebo MSPE ratios, we found that the MSPE ratios of Denver, Colorado Springs, and Aurora were not large enough to constitute statistically significant evidence that violent crime rates in those areas were significantly different from violent crime rates in control jurisdictions post-treatment. The synthetic controls were strong fits for Denver and Colorado Springs, but the synthetic control was extremely weak in the context of Aurora, which may partially explain why Aurora's data was the closest to being significant.
+
+### Property Crime
+
+Our property crime results varied significantly from our violent crime results in terms of the significance of our findings. Just like in the case of violent crime, we created three synthetic controls, one for each of three treated jurisdictions. All 3 synthetic controls were at least moderate fits with the data, with significant variation in how well the synthetic controls fit based on treated jurisdiction. 
+
+#### Denver
+
+```{r}
+denver_property_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "pop_density", "median_income", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 25, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
+                                                            95:96), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
+         time.plot = 2011:2021)
+         
+```
+
+```{r}
+synth_denver_property <- synth(denver_property_prep, optimxmethod = "All")
+```
+
+```{r}
+path.plot(synth.res = synth_denver_property,
+dataprep.res = denver_property_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+```{r gaps-plot-denver-property}
+gaps.plot(synth.res = synth_denver_property,
+dataprep.res = denver_property_prep,
+Ylab = "Property Crime Rate Gaps",
+Xlab = "Year"
+)
+```
+
+```{r}
+denver_prop_tables <- synth.tab(dataprep.res = denver_property_prep, 
+                                synth.res = synth_denver_property)
+denver_prop_tables$tab.pred
+denver_prop_tables$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  slice(1:10)
+```
+
+As seen in Figures ____ (path and gaps plots), the synthetic control is not an exceptional fit for the Denver data. In particular, while the synthetic control's property crime rate steadily decreases, Denver's property crime rate has the opposite trend from 2014. Notably, however, the gaps between Denver and the synthetic control's property crime rates are not especially large until the time periods post-treatment (2020 and 2021), where Denver has an immense increase in property crime rates that is not at all followed by the synthetic control.
+
+In terms of predictors, Table ___ displays that the syntheitc control does a good job of creating a synthetic jurisdictions with predicotrs that match the observed Denver well. Although synthetic Denver and observed Denver have opposite trends, we believe that the synthetic control fits well enough to run a statistical significance analysis with meaningful insights. It is important to note, however, that the conclusions reached by the significance analysis are, of course, limited by the fact that the synthetic control and Denver had opposite crime trends even prior to treatment, even if such crime trends did not reach the magnitude of difference post-treatment.
+
+```{r}
+mspe.test(placebos3, discard.extreme = TRUE, mspe.limit = 5)$p.val
+```
+
+
+After generating over 90 placebos, we found the MSPE ratio of Denver to be statistically significant. In particular, after discarding jurisdictions with pre-treatment MSPEs greater than 5x that of Denver's, we found that Denver's MSPE ratio was one of the highest, only exceeded by approximately 3.66% of placebo jurisdictions. Although not significant at the 1% level, such a finding is significant at the 5% and 10% levels. The data does provide sufficient evidence to indicate that Denver's property crime rate in 2020 and 2021 is significantly greater than those of control jurisdictions and makes it unlikely that Denver's heightened property crime rate merely resulted from chance.
+
+#### Colorado Springs
+
+```{r}
+cspd_property_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "pop_density", "median_income", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 20, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
+                                                            95:96), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
+         time.plot = 2011:2021)
+         
+```
+
+```{r}
+synth_cspd_property <- synth(cspd_property_prep, optimx = "All")
+```
+
+```{r}
+path.plot(synth.res = synth_cspd_property,
+dataprep.res = cspd_property_prep,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Colorado Springs, CO","Synthetic Colorado Springs")
+)
+```
+
+```{r gaps-plot-2-cspd}
+
+gaps.plot(synth.res = synth_cspd_property,
+dataprep.res = cspd_property_prep,
+Ylab = "Property Crime Rate Gaps",
+Xlab = "Year", 
+Ylim = c(-1000, 1000)
+)
+```
+
+```{r}
+cspd_prop_tables <- synth.tab(dataprep.res = cspd_property_prep, 
+                                synth.res = synth_cspd_property)
+cspd_prop_tables$tab.pred
+cspd_prop_tables$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  slice(1:10)
+```
+
+Unlike in the case of Denver, Colorado Springs' synthetic control is an exceptionally good fit to the data. With a pretreatment MSPE of only `r round(synth_cspd_property$loss.v, 3)` (note that because we are using property crime rates, numbers are expected to be much higher than in the case of violent crime rates), the synthetic control follows Colorado Springs' trend exceptionally well until about 2019. From 2019-2021, Colorado Springs had a slightly higher property crime rate than its synthetic control.
+
+```{r p-value-cspd-2}
+est2 <- cspd_property_prep$Y0plot %*% synth_cspd_property$solution.w
+est2 <- est2[c(10, 11)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Colorado Springs, Colorado" & year >= 2020) %>% 
+  select(property_crime_rate) %>% 
+  pull()
+
+mspe_ratio_cspd <- cvTools::mspe(est2, real) / synth_cspd_property$loss.v
+mspe_ratio_cspd <- mspe_ratio_cspd[1]
+
+l_cspd <- synth_cspd_property$loss.v
+l_cspd <- l_cspd[1]
+extremes <- which(placebos3$mspe.placs >= 5 * l_cspd) # l = Aurora loss.v value 
+unit.names <- placebos3$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_cspd_lim <- test_results %>% 
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_cspd_lim)[1] <- "ratios"
+n <- test_results_cspd_lim %>% 
+  filter(ratios >= mspe_ratio_cspd) %>% 
+  nrow()
+p3 <- n / nrow(test_results_cspd_lim)  # Find p-value again
+```
+
+Using significance testing, we found that Colorado Springs' MSPE ratio of about 7.7, although higher than the average, was not statistically significant at any of the 3 levels after removing jurisdictions with pretreatment MSPEs more than 5x greater than that of Colorado Springs. Roughly 15% of placebo jurisdictions had MSPE ratios greater than the one in Colorado Springs. Thus, the data does not provide sufficient evidence to indicate that Colorado Springs' different property crime rates from control jurisdictions could not have resulted simply from chance.
+
+#### Aurora
+
+```{r aurora-prop-prep}
+aurora_property_prep <- dataprep(foo = reduced_database_violent, predictors = 
+                                  c("population", "pop_density", "median_income",
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 5, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
+                                                            95:96), 
+         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
+         time.plot = 2011:2021)
+
+synth_aurora_property <- synth(aurora_property_prep, optimxmethod = "All")
+```
+
+```{r plots-aurora}
+path.plot(synth.res = synth_aurora_property,
+dataprep.res = aurora_property_prep,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Aurora, CO","Synthetic Aurora")
+)
+
+gaps.plot(synth.res = synth_aurora_property,
+dataprep.res = aurora_property_prep,
+Ylab = "Property Crime Rate Gaps",
+Xlab = "Year"
+)
+```
+
+```{r tables-aurora}
+aurora_prop_tables <- synth.tab(dataprep.res = aurora_property_prep, 
+                                synth.res = synth_aurora_property)
+aurora_prop_tables$tab.pred
+
+aurora_prop_tables$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  slice(1:10)
+```
+
+Unlike in the case of the Aurora violent crime synthetic control, the Aurora property crime synthetic control is a moderate fit to the data. Per figure ____, the gaps between Aurora's property crime rate and synthetic Aurora's property crime rates are less than 500 until the treatment year. Similar to Denver's property crime synthetic control, Aurora's proeprty crime synthetic control suffers from opposite trends; while the synthetic control's property crime rates are steadily decreasing every year from 2011, Aurora's property crime rates remain steady until its increase in 2020. However, Aurora's predictors are well-matched by the synthetic control, and Aurora's pretreatment MSPE of `r round(synth_aurora_property, 3)` is substantially lower than Denver's property crime pretreatment MSPE. Overall, the fit with the data is strong enough to derive some meaningful insights.
+
+```{r p-value-aurora-2}
+est <- aurora_property_prep$Y0plot %*% synth_aurora_property$solution.w
+est <- est[c(10, 11)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Aurora, Colorado" & year >= 2020) %>% 
+  select(property_crime_rate) %>% 
+  pull()
+
+mspe_ratio <- cvTools::mspe(est, real) / synth_aurora_property$loss.v
+mspe_ratio <- mspe_ratio[1]
+l <- synth_aurora_property$loss.v
+l <- l[1]
+extremes <- which(placebos3$mspe.placs >= 5 * l) # l = Aurora loss.v value 
+unit.names <- placebos2$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_aurora_lim <- test_results %>% 
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_aurora_lim)[1] <- "ratios"
+n <- test_results_aurora_lim %>% 
+  filter(ratios >= mspe_ratio) %>% 
+  nrow()
+p4 <- n / nrow(test_results_aurora_lim)  # Find p-value again
+
+```
+
+After performing placebo test analysis, we find that the MSPE ratio of Aurora is statistically significant at both the 5% and 10% levels after removing jurisdictions with pretreatment MSPEs more than 5x greater than that of Aurora. In particular, Aurora's MSPE ratio of `r round(mspe_ratio, 3)` is only surpassed by the extreme outlier Madison, Wisconsin; without that outlier, Aurora's MSPE ratio would be significant at the 1% level as well. The data does provide sufficient evidence to indicate that Aurora's 2020 and 2021 property crime rates were significantly greater than those of similar jurisdictions and that chance alone likely cannot explain the increase.
+
+#### Visualizing the Placebos for Property Crime
+
+Below, we created a histogram to visualize the placebos for property crime.
+
+```{r summary-stats-placebos-3}
+test_results %>% 
+  summarise(mean = mean(MSPE.ratios), 
+            sd = sd(MSPE.ratios), 
+            median = median(MSPE.ratios))
+```
+
+```{r histogram-placebos-3}
+g <- test_results %>% 
+  filter(unit == "Denver, Colorado") %>% 
+  select(MSPE.ratios) %>% 
+  pull()
+
+test_results %>% 
+  filter(unit != "Denver, Colorado") %>% 
+ggplot(aes(x = MSPE.ratios)) + 
+  geom_histogram(color = "black", binwidth = 2.5) +
+  xlim(0, 125) +
+  ylim(0, 20) + 
+  geom_vline(xintercept = mspe_ratio, color = "red") + 
+  geom_vline(xintercept = mspe_ratio_cspd, color = "steelblue") +
+  geom_vline(xintercept = g) + 
+  labs(title = "Distribution of Placebo MSPE Ratios for Property Crime Rates", 
+       x = "MSPE Ratios", 
+       y = "Count") 
+```
+
+Similar to the violent crime MSPE ratios, we had one outlier at around 120, likely due to an incredibly low pretreatment MSPE coupled with some increase or decrease in property crime. In Appendix 2, we discuss this outlier more. For now, we can re-visualize the histogram without the outlier.
+
+
+```{r summary-stats-placebos-4}
+test_results %>% 
+  filter(MSPE.ratios <= 60) %>% 
+  summarise(mean = mean(MSPE.ratios), 
+            sd = sd(MSPE.ratios), 
+            median = median(MSPE.ratios))
+```
+
+```{r histogram-placebos-4}
+g <- test_results %>% 
+  filter(unit == "Denver, Colorado") %>% 
+  select(MSPE.ratios) %>% 
+  pull()
+
+test_results %>% 
+  filter(unit != "Denver, Colorado") %>% 
+ggplot(aes(x = MSPE.ratios)) + 
+  geom_histogram(color = "black", binwidth = 1) +
+  xlim(0, 50) +
+  ylim(0, 20) + 
+  geom_vline(xintercept = mspe_ratio, color = "red") + 
+  geom_vline(xintercept = mspe_ratio_cspd, color = "steelblue") +
+  geom_vline(xintercept = g) + 
+  labs(title = "Distribution of Placebo MSPE Ratios for Property Crime Rates", 
+       x = "MSPE Ratios", 
+       y = "Count") 
+```
+
+As we can see on the histogram, both Denver and Aurora's MSPE ratios are extreme compared to the placebo synthetic controls, implying that the property crime increases in both jurisdictions likely did not result purely from chance. Additionally, Colorado Springs' property crime MSPE ratio occurs on the right end of the graph, implying that Colorado Springs' property crime MSPE ratio is close to extreme but does not quite reach that level.
+
+#### Overall Property Crime Results
+
+After constructing over 90 different placebos and 3 synthetic controls for each of the treated jurisdictions, we found that Denver and Aurora both experienced property crime increases significantly greater than those of similar jurisdictions and that such increases likely did not result purely from chance (given that few placebos, outside of the one outlier, experienced similar increases). Such a finding will be discussed in further detail in the Discussion section. We additionally found that Colorado Springs' MSPE ratio, although not significant, was also somewhat extreme, only surpassed by around 15% of placebo MSPE ratios. Each of the synthetic controls fit their jurisdictions at least moderately well, with significant variation in how well the controls performed. Colorado Springs possessed the strongest synthetic control by far, while both Denver and Aurora's synthetic controls suffered from nonparallel trends. This may indicate that Colorado Springs' data provided the most reliable conclusions, a subject that will be expounded upon in further detail in the "Discussion" section.
+
+### Summary Table
+
+Create a table of the following:
+Jurisdiction name, pre-treatment MSPE, MSPE ratio, 
+
+Second table:
+Placebo MSPE average
+
+## Discussion
