@@ -693,7 +693,7 @@ As we can see on the histogram, both Denver and Aurora's MSPE ratios are extreme
 
 After constructing over 90 different placebos and 3 synthetic controls for each of the treated jurisdictions, we found that Denver and Aurora both experienced property crime increases significantly greater than those of similar jurisdictions and that such increases likely did not result purely from chance (given that few placebos, outside of the one outlier, experienced similar increases). Such a finding will be discussed in further detail in the Discussion section. We additionally found that Colorado Springs' MSPE ratio, although not significant, was also somewhat extreme, only surpassed by around 15% of placebo MSPE ratios. Each of the synthetic controls fit their jurisdictions at least moderately well, with significant variation in how well the controls performed. Colorado Springs possessed the strongest synthetic control by far, while both Denver and Aurora's synthetic controls suffered from nonparallel trends. This may indicate that Colorado Springs' data provided the most reliable conclusions, a subject that will be expounded upon in further detail in the "Discussion" section.
 
-### Summary Table
+### Summary Table 
 
 Create a table of the following:
 Jurisdiction name, pre-treatment MSPE, MSPE ratio, 
