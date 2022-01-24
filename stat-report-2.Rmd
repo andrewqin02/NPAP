@@ -79,7 +79,829 @@ reduced_database_violent <- reduced_database_violent %>%
 reduced_database_violent <- as.data.frame(reduced_database_violent)
 ```
 
+```{r add-dates}
+dates <- str_split(co_offenses$FIRST_OCCURRENCE_DATE, " ", simplify = TRUE)
+dates <- dates[,1]
+year <- str_split(dates, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(date = dates, month = month, year = year)
+co_offenses <- tibble(co_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
 
+co_offenses <- co_offenses %>% 
+  mutate(violent = if_else(OFFENSE_CATEGORY_ID == "aggravated-assault" | 
+           OFFENSE_CATEGORY_ID == "murder" & 
+             OFFENSE_TYPE_ID != "homicide-negligent" | 
+           OFFENSE_CATEGORY_ID == "robbery" | 
+           OFFENSE_CATEGORY_ID == "sexual-assault", 1, 0)) %>% 
+  mutate(property = if_else(OFFENSE_CATEGORY_ID == "arson" |
+                              OFFENSE_CATEGORY_ID == "auto-theft" |
+                              OFFENSE_CATEGORY_ID == "burglary" | 
+                              OFFENSE_CATEGORY_ID == "larceny" |
+                              OFFENSE_CATEGORY_ID == "theft-from-motor-vehicle", 
+                            1, 0))
+
+daily_totals <- co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  count(date)
+
+monthly_totals <- co_offenses %>% 
+  filter(IS_CRIME == 1) %>% 
+  mutate(my = as.Date(my)) %>% 
+  count(my)
+
+co_violent <- co_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+co_limited_violent <- co_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+co_limited_property <- co_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+co_monthly_violent <- co_offenses %>% 
+  filter(violent == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
+
+co_monthly_property <- co_offenses %>% 
+  filter(property == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
+
+co_property_totals <- co_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+```
+
+```{r cspd-wrangling}
+names(cspd)[4] <- 'date'
+names(cspd)[7] <- 'crime_against'
+names(cspd)[11] <- 'description'
+
+dates <- str_split(cspd$date, " ", simplify = TRUE)
+dates <- dates[,1]
+year <- str_split(dates, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(date = dates, month = month, year = year)
+cspd <- cspd[-4]
+cspd <- tibble(cspd, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+cspd <- cspd %>% 
+  mutate(violent = if_else(description == "Aggravated Assault" | 
+                             description == "Murder and Non-Negligent Manslaughter" | 
+                             description == "Robbery" | 
+                             description == "Sexual Assault With An Object" | 
+                             description == "Forcible Fondling" |
+                             description == "Forcible Rape" | 
+                             description == "Forcible Sodomy", 1, 0)) %>% 
+  mutate(property = if_else(description == "All Other Larceny" | 
+                              description == "Arson" |
+                              description == "Burglary/Breaking & Entering" | 
+                              description == "Destruction/Damage/Vandalism of Property" | 
+                              description == "Motor Vehicle Theft" | 
+                              description == "Pocket-Picking" | 
+                              description == "Shoplifting" | 
+                              description == "Stolen Property Offenses" | 
+                              description == "Theft From Building" | 
+                              description == "Theft From Coin-Operated Device" | 
+                              description == "Theft From Motor Vehicle" | 
+                              description == "Theft Of Motor Vehicle Parts" |
+                              description == "Purse-Snatching", 1, 0))
+
+cspd_violent <- cspd %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+cspd_monthly_violent <- cspd %>% 
+  filter(violent == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
+
+cspd_property <- cspd %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+cspd_monthly_property <- cspd %>% 
+  filter(property == 1) %>% 
+  count(my) %>% 
+  mutate(time_period = case_when(
+   my < as.Date("2020-06-19") ~ "before_qi",
+    my >= as.Date("2020-06-19") ~ "after_qi"
+  ))
+```
+
+
+
+```{r add-date-wa}
+names(wa_offenses)[3] <- 'date'
+names(wa_offenses)[7] <- 'crime_against'
+names(wa_offenses)[8] <- 'offense_parent_group'
+names(wa_offenses)[9] <- 'offense'
+names(wa_offenses)[10] <- 'offense_code'
+names(wa_offenses)[6] <- 'group_a_b'
+
+wa_offenses$date <- str_split(wa_offenses$date, " ", simplify = TRUE)[,1] # Get rid of time
+
+dates <- str_split(wa_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+wa_offenses <- tibble(wa_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+wa_offenses <- wa_offenses %>% 
+  mutate(violent = ifelse(offense == "Aggravated Assault" | 
+           offense == "Murder & Nonnegligent Manslaughter" | 
+           offense == "Rape" | 
+           offense == "Robbery" |
+           offense == "Sexual Assault With An Object" | 
+             offense == "Fondling" | 
+             offense == "Sodomy", 1, 0)) %>% 
+  mutate(property = ifelse(offense == "All Other Larceny" | 
+                             offense == "Arson" | 
+                             offense == "Burglary/Breaking & Entering" |
+                             offense == "Motor Vehicle Theft" | 
+                             offense == "Shoplifting" | 
+                             offense == "Stolen Property Offenses" | 
+                             offense == "Pocket-picking" |
+                             offense == "Theft From Building" | 
+                             offense == "Theft From Coin-Operated Machine or Device" | 
+                             offense == "Theft From Motor Vehicle" | 
+                             offense == "Theft of Motor Vehicle Parts or Accessories" | 
+                             offense == "Destruction/Damage/Vandalism of Property" | 
+                             offense == "Purse-snatching", 1, 0))
+daily_totals_wa <- wa_offenses %>% 
+  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(date)
+
+monthly_totals_wa <- wa_offenses %>% 
+  filter(offense_parent_group != "DRIVING UNDER THE INFLUENCE") %>%
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(my) 
+
+wa_monthly_violent <- wa_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(wa_n = n)
+  
+
+wa_violent <- wa_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+wa_limited_violent <- wa_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+wa_property <- wa_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+wa_limited_property <- wa_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+wa_monthly_property <- wa_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(wa_n = n)
+```
+
+```{r houston-wrangling}
+names(tx_offenses19)[2] <- "date"
+names(tx_offenses19)[3] <- "hour"
+names(tx_offenses19)[4] <- "class"
+names(tx_offenses19)[5] <- "description"
+names(tx_offenses19)[6] <- "offense_count"
+names(tx_offenses20)[2] <- "date"
+names(tx_offenses20)[3] <- "hour"
+names(tx_offenses20)[4] <- "class"
+names(tx_offenses20)[5] <- "description"
+names(tx_offenses20)[6] <- "offense_count"
+names(tx_offenses21)[2] <- "date"
+names(tx_offenses21)[3] <- "hour"
+names(tx_offenses21)[4] <- "class"
+names(tx_offenses21)[5] <- "description"
+names(tx_offenses21)[6] <- "offense_count"
+
+tx_offenses19 <- tx_offenses19 %>% 
+  select(-14)
+
+tx_offenses <- full_join(tx_offenses19, tx_offenses20)
+tx_offenses <- full_join(tx_offenses, tx_offenses21)
+
+dates <- str_split(tx_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+tx_offenses <- tibble(tx_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+tx_offenses <- tx_offenses %>% 
+  select(date, description, my) %>% 
+  mutate(violent = ifelse(description == "Aggravated Assault" | 
+           description == "Murder, non-negligent" | 
+           description == "Forcible rape" | 
+           description == "Robbery" |
+           description == "Sexual assault with an object" | 
+             description == "Forcible fondling" | 
+             description == "Forcible sodomy", 1, 0)) %>% 
+  mutate(property = ifelse(description == "All other larceny" | 
+                             description == "Arson" | 
+                             description == "Burglary, Breaking and Entering" |
+                             description == "Theft from motor vehicle" | 
+                             description == "Shoplifting" | 
+                             description == "Stolen property offenses" | 
+                             description == "Pocket-picking" |
+                             description == "Theft from building" | 
+                             description == "From coin-operated machine or device" | 
+                             description == "Motor vehicle theft" | 
+                             description == "Theft of motor vehicle parts or accessory" | 
+                             description == "Destruction, damage, vandalism" | 
+                             description == "Purse-snatching", 1, 0)) 
+
+tx_violent <- tx_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+tx_monthly_violent <- tx_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(tx_n = n)
+
+tx_property <- tx_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+tx_monthly_property <- tx_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(tx_n = n)
+```
+
+```{r austin-wrangling}
+austin_offenses <- austin_offenses %>% 
+  mutate(violent = ifelse(description == "Aggravated Assault" | 
+           description == "Murder" | 
+           description == "Rape" | 
+           description == "Robbery", 1, 0)) %>% 
+  mutate(property = ifelse(description == "Auto Theft" | 
+                             description == "Burglary" | 
+                             description == "Theft", 1, 0))
+
+austin_violent <- austin_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_limited_violent <- austin_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_property <- austin_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_limited_property <- austin_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+austin_monthly_property <- austin_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(austin_n = n)
+
+austin_monthly_violent <- austin_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(austin_n = n)
+```
+
+
+```{r fspd-wrangling}
+names(fspd_offenses)[2] <- "date"
+names(nibrs_conversion)[2] <- "IBRCode"
+
+nibrs_conversion <- nibrs_conversion %>% 
+  select(IBRCode, OFFENSE_NAME, CRIME_AGAINST)
+
+fspd_offenses <- full_join(fspd_offenses, nibrs_conversion, by = "IBRCode")
+
+dates <- str_split(fspd_offenses$date, "/", simplify = TRUE)
+month <- dates[,1]
+year <- dates[,3]
+dates <- tibble(month = month, year = year)
+fspd_offenses <- tibble(fspd_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my)) # convert to date format
+
+fspd_offenses <- fspd_offenses %>% 
+  mutate(violent = ifelse(OFFENSE_NAME == "Aggravated Assault" | 
+           OFFENSE_NAME == "Murder & Nonnegligent Manslaughter" | 
+           OFFENSE_NAME == "Rape" | 
+           OFFENSE_NAME == "Robbery" |
+           OFFENSE_NAME == "Sexual Assault With An Object" | 
+             OFFENSE_NAME == "Fondling" | 
+             OFFENSE_NAME == "Sodomy", 1, 0)) %>% 
+  mutate(property = ifelse(OFFENSE_NAME == "All Other Larceny" | 
+                             OFFENSE_NAME == "Arson" | 
+                             OFFENSE_NAME == "Burglary/Breaking & Entering" |
+                             OFFENSE_NAME == "Motor Vehicle Theft" | 
+                             OFFENSE_NAME == "Shoplifting" | 
+                             OFFENSE_NAME == "Stolen Property Offenses" | 
+                             OFFENSE_NAME == "Pocket-picking" |
+                             OFFENSE_NAME == "Theft From Building" | 
+                             OFFENSE_NAME == "Theft From Coin-Operated Machine or Device" | 
+                             OFFENSE_NAME == "Theft From Motor Vehicle" | 
+                             OFFENSE_NAME == "Theft of Motor Vehicle Parts or Accessories" | 
+                             OFFENSE_NAME == "Destruction/Damage/Vandalism of Property" | 
+                             OFFENSE_NAME == "Purse-snatching", 1, 0))
+
+
+daily_totals_fspd <- fspd_offenses %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(date)
+
+monthly_totals_fspd <- fspd_offenses %>% 
+  filter(date >= as.Date("2016-01-01")) %>% 
+  count(my) 
+
+fspd_monthly_violent <- fspd_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(fspd_n = n)
+
+fspd_violent <- fspd_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE) 
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, fspd_violent) %>% 
+  mutate(n = 0)
+
+fspd_violent <- full_join(antijoin, fspd_violent) %>% 
+  arrange(date)
+
+fspd_limited_violent <- fspd_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_limited_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, fspd_limited_violent) %>% 
+  mutate(n = 0)
+
+fspd_limited_violent <- full_join(antijoin, fspd_limited_violent) %>% 
+  arrange(date)
+
+fspd_property <-fspd_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+fspd_limited_property <- fspd_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+fspd_monthly_property <- fspd_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(fspd_n = n)
+
+```
+
+
+```{r champaign-wrangling}
+il_offenses <- full_join(champaign19, champaign20)
+il_offenses <- full_join(il_offenses, champaign21)
+
+names(il_offenses)[1] <- 'date'
+names(il_offenses)[2] <- 'description'
+
+year <- str_split(il_offenses$date, "/", simplify = TRUE)
+month <- year[,1]
+year <- year[,3]
+dates <- tibble(month = month, year = year)
+il_offenses <- tibble(il_offenses, dates) %>% 
+  mutate(date = mdy(date)) %>% 
+  mutate(my = paste0(month, "-01-", year)) %>% 
+  mutate(my = mdy(my))
+
+il_offenses <- il_offenses %>% 
+  mutate(violent = if_else(description == "ARSON" | 
+                             description == "ARSON-AGGRAVATED" | 
+                             description == "ASSAULT-AGGRAVATED" | 
+                             description == "MURDER-FIRST DEGREE" | 
+                             description == "MURDER-SECOND DEGREE" |
+                             description == "PREDATORY CRIM SEX ASSAULT OF CHILD" | 
+                             description == "SEXUAL ABUSE-AGGRAVATED" | 
+                             description == "SEXUAL ABUSE-CRIMINAL" |
+                             description == "SEXUAL ASSAULT-AGG CRIMINAL" | 
+                             description == "SEXUAL EXPLOITATION OF A CHILD" |
+                             description == "SEXUAL-ASSAULT-CRIMINAL" |
+                             description == "SEXUAL ABUSE-AGGRAVATED" | 
+                             description == "VIOL CHILD MURDERER/VIOLENT OFF ACT" |
+                             description == "ROBBERY" |
+                              description == "ROBBERY-AGGRAVATED" |
+                            description == "ROBBERY-ARMED"
+                           , 1, 0)) %>% 
+  mutate(property = if_else(description == "BURGLARY" | 
+                              description == "CRIMINAL DAMAGE GOVT SUPPORT PROP" |
+                              description == "BURGLARY FROM MOTOR VEHICLE" | 
+                              description == "BURGLARY MOTOR VEH PARTS & ACCESS" | 
+                              description == "BURGLARY RESIDENTIAL" | 
+                              description == "CRIMINAL DAMAGE TO PROPERTY" | 
+                              description == "CRIMINAL DEFACEMENT OF PROPERTY" | 
+                              description == "DAMAGE TO CITY PROPERTY" | 
+                              description == "DAMAGING PROPERTY" | 
+                              description == "POCKET-PICKING" | 
+                              description == "RETAIL THEFT" | 
+                              description == "THEFT $500 AND UNDER" |
+                              description == "THEFT BY LESSEE" |
+                              description == "THEFT FROM COIN-OP MACHINE/DEVICE" |
+                              description == "THEFT FROM MOTOR VEHICLE" |
+                              description == "THEFT GENERALLY" |
+                              description == "THEFT OF LOST/MISLAID PROP" |
+                              description == "THEFT OF LOST/MISLAID PROPERTY" |
+                              description == "THEFT OF MOTOR VEH PARTS & ACCESS" |
+                              description == "THEFT OVER $500" |
+                              description == "THEFT-AGG IDENTITY" |
+                              description == "THEFT-IDENTITY" |
+                              description == "THEFT-LABOR OR SERVICES" |
+                              description == "THEFT-LOST/MISLAID PROPERTY" |
+                              description == "THEFT-MOTOR VEHICLE" |
+                              description == "THEFT-RETAIL" |
+                              description == "THEFT-AGG IDENTITY", 1, 0))
+
+il_violent <- il_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_violent) %>% 
+  mutate(n = 0)
+
+il_violent <- full_join(antijoin, il_violent) %>% 
+  arrange(date)
+
+il_monthly_violent <- il_offenses %>% 
+    filter(violent == 1) %>% 
+  count(my) %>% 
+  rename(il_n = n)
+
+il_monthly_property <- il_offenses %>% 
+    filter(property == 1) %>% 
+  count(my) %>% 
+  rename(il_n = n)
+
+il_limited_violent <- il_offenses %>% 
+  filter(violent == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_limited_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_limited_violent) %>% 
+  mutate(n = 0)
+
+il_limited_violent <- full_join(antijoin, il_limited_violent) %>% 
+  arrange(date)
+
+il_limited_property <- il_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-05-31") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-01") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_limited_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_limited_property) %>% 
+  mutate(n = 0)
+
+il_limited_property <- full_join(antijoin, il_limited_property) %>% 
+  arrange(desc(date))
+
+
+
+il_property <- il_offenses %>% 
+  filter(property == 1) %>% 
+  count(date) %>% 
+  mutate(time_period = case_when(
+    date >= as.Date("2019-06-19") & date < as.Date("2020-06-19") ~ "2019-20",
+    date >= as.Date("2020-06-19") & date < as.Date("2021-06-20") ~ "2020-21"
+  )) %>% 
+  filter(is.na(time_period) == FALSE)
+
+add_dates <- co_violent %>% 
+  select(date, time_period)
+
+antijoin <- anti_join(add_dates, il_property) %>% 
+  mutate(n = 0)
+
+il_property <- full_join(antijoin, il_property) %>% 
+  arrange(date)
+```
+
+```{r create-weighted-average}
+t1 <- co_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- co_violent %>% 
+  filter(time_period == "2020-21") %>%
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(jurisdiction = "Denver") %>% 
+  select(diff, jurisdiction, date)
+
+wat1 <- wa_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- wa_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(seattle_diff = (p2 - p1) / sum(p1)) %>% 
+  select(seattle_diff, date)
+
+wat1 <- tx_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- tx_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysistx <- tibble(wat1, wat2) %>% 
+  mutate(tx_diff = (p2 - p1) / sum(p1)) %>% 
+  select(tx_diff)
+
+wat1 <- fspd_violent %>%
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n) 
+
+wat2 <- fspd_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysisfspd <- tibble(wat1, wat2) %>% 
+  mutate(fspd_diff = (p2 - p1) / sum(p1)) %>% 
+  select(fspd_diff) 
+
+wat1 <- il_violent %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- il_violent %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysisil <- tibble(wat1, wat2) %>% 
+  mutate(il_diff = (p2 - p1) / sum(p1)) %>% 
+  select(il_diff)
+
+synthetic <- tibble(combined_analysiswa, combined_analysistx, combined_analysisfspd, 
+                    combined_analysisil, .name_repair = "universal") %>% 
+  mutate(diff = seattle_diff * 0.496466442 + tx_diff * 0.004280705 + fspd_diff * 0.487715311 + 
+           il_diff * 0.011537542) %>% 
+  mutate(jurisdiction = "Synthetic Control")  %>% 
+  select(diff, jurisdiction, date)
+
+combined_synthetic_violent <- full_join(combined_analysis, synthetic)
+```
+
+
+
+```{r create-weighted-average-property}
+t1 <- co_property_totals %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+t2 <- co_property_totals %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysis <- tibble(t1, t2) %>% 
+  mutate(diff = (p2 - p1) / sum(p1)) %>% 
+  mutate(jurisdiction = "Denver") %>% 
+  select(diff, jurisdiction, date)
+
+wat1 <- wa_property %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- wa_property %>% 
+  filter(time_period == "2020-21") %>% 
+  rename("p2" = n)
+
+combined_analysiswa <- tibble(wat1, wat2) %>% 
+  mutate(seattle_diff = (p2 - p1) / sum(p1)) %>% 
+  select(seattle_diff, date)
+
+wat1 <- austin_property %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- austin_property %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysistx <- tibble(wat1, wat2) %>% 
+  mutate(tx_diff = (p2 - p1) / sum(p1)) %>% 
+  select(tx_diff)
+
+wat1 <- fspd_property %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- fspd_property %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysisfspd <- tibble(wat1, wat2) %>% 
+  mutate(fspd_diff = (p2 - p1) / sum(p1)) %>% 
+  select(fspd_diff)
+
+wat1 <- il_property %>% 
+  filter(time_period == "2019-20") %>% 
+  select(n) %>% 
+  rename("p1" = n)
+
+wat2 <- il_property %>% 
+  filter(time_period == "2020-21") %>% 
+  select(n) %>% 
+  rename("p2" = n)
+
+combined_analysisil <- tibble(wat1, wat2) %>% 
+  mutate(il_diff = (p2 - p1) / sum(p1)) %>% 
+  select(il_diff)
+
+synthetic <- tibble(combined_analysiswa, combined_analysistx, combined_analysisfspd, 
+                    combined_analysisil) %>% 
+  mutate(diff = seattle_diff * 0.08747524 + tx_diff * 0.6935988 + fspd_diff * 0.00004654831 + 
+           il_diff * 0.2188792) %>% # Excluded Houston due to extremely small weight
+  mutate(jurisdiction = "Synthetic Control")  %>% 
+  select(diff, jurisdiction, date)
+
+combined_synthetic_property <- full_join(combined_analysis, synthetic)
+```
 ## Introduction and Background
 
 Qualified immunity is a court-established doctrine that shields government officials from personal liability for constitutional violations unless the officials violated clearly established laws (https://www.lawfareblog.com/what-qualified-immunity-and-what-does-it-have-do-police-reform). After the killing of George Floyd sparked movements against police violence around the country, many activists directed their attention towards qualified immunity as a subject of reform. Activists argued that qualified immunity prevents police officers from being held accountable for excessive uses of force within civil court. Supporters of qualified immunity argued that efforts to limit qualified immunity would prevent police officers from effectively performing their job out of fear of frivolous lawsuits. In this statistical report, we aim to provide preliminary data-driven insights on the effects of recently passed qualified immunity reform on violent and property crime rates in major urban jurisdictions.
@@ -117,8 +939,25 @@ In the end, we had a dataset of 96 jurisdictions, with crime data from 2011 to 2
 ```{r display-dataset}
 reduced_database_violent %>% 
   slice(1:20) %>% 
+  select(9, 1:8) %>% 
   kable(digits = 3)
 ```
+
+```{r display-dataset-2}
+reduced_database_violent %>% 
+  slice(1:20) %>% 
+  select(9:17) %>% 
+  kable(digits = 3)
+```
+
+```{r display-dataset-3}
+reduced_database_violent %>% 
+  slice(1:20) %>% 
+  select(9, 18:24) %>% 
+  kable(digits = 3)
+```
+
+
 
 We decided to split our analysis into violent and property crime analysis for similar reasons as Wells and Weishelt did in their study. There is no evidence that violent and property crime trends are parallel, and ordinarily, property crime numbers would constitute 90% of the total crime rate. Additionally, because the UCR primarily reports property and violent crime numbers, property and violent crime numbers would already be standardized before we began our wrangling process.
 
@@ -155,6 +994,78 @@ The results of this methodology, in their entirety, will be described in Appendi
 ## Exploratory Data Analysis
 
 
+```{r fig.height = 4, fig.width = 5}
+
+y_int <- co_monthly_violent %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(co_monthly_violent, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Violent Crime Numbers in Denver 2016-2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 10, lty = 2) +
+  theme(text = element_text(size = 9))
+```
+
+```{r monthly-prop-denver, fig.height = 4, fig.width = 5}
+y_int <- co_monthly_property %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(co_monthly_property, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Property Crime Numbers in Denver 2016-2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 50, lty = 2) +
+  theme(text = element_text(size = 9))
+```
+
+```{r monthly-violent-cspd, fig.height = 4, fig.width = 5}
+y_int <- cspd_monthly_violent %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(cspd_monthly_violent, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Violent Crime Numbers in Colorado Springs 2016-2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 10, lty = 2) +
+  theme(text = element_text(size = 9))
+```
+
+```{r monthly-property-cspd, fig.height = 4, fig.width = 5}
+y_int <- cspd_monthly_property %>% 
+  filter(time_period == "before_qi") %>% 
+  summarise(max = max(n)) %>% 
+  pull()
+
+ggplot(cspd_monthly_property, aes(x = my, y = n, fill = time_period)) + 
+  geom_bar(stat = "identity") + 
+  scale_fill_manual(values = c("red", "black")
+  ) + 
+  theme(legend.position = "none") + 
+  labs(title = "Monthly Property Crime Numbers in Colorado Springs 2016-2021", 
+       x = "Date", 
+       y = "Number of Reported Incidents") + 
+  geom_hline(yintercept = y_int + 50, lty = 2) +
+  theme(text = element_text(size = 9))
+```
 
 
 ## Testing and Results
@@ -462,7 +1373,7 @@ ggplot(aes(x = MSPE.ratios)) +
   geom_vline(xintercept = mspe3, color = "red") + 
   geom_vline(xintercept = mspe2, color = "steelblue") + 
   geom_vline(xintercept = mspe1) + 
-  labs(title = "Distribution of Placebo MSPE Ratios without Outliers", 
+  labs(title = "Distribution of Placebo MSPE Ratios", 
        x = "MSPE Ratios", 
        y = "Count") # Denver's value
 ```
@@ -747,7 +1658,7 @@ ggplot(aes(x = MSPE.ratios)) +
   geom_vline(xintercept = mspe6, color = "red") + 
   geom_vline(xintercept = mspe5, color = "steelblue") +
   geom_vline(xintercept = mspe4) + 
-  labs(title = "Distribution of Placebo MSPE Ratios for Property Crime Rates", 
+  labs(title = "Distribution of Placebo MSPE Ratios", 
        x = "MSPE Ratios", 
        y = "Count") 
 ```
@@ -774,7 +1685,7 @@ ggplot(aes(x = MSPE.ratios)) +
   geom_vline(xintercept = mspe6, color = "red") + 
   geom_vline(xintercept = mspe5, color = "steelblue") +
   geom_vline(xintercept = mspe4) + 
-  labs(title = "Distribution of Placebo MSPE Ratios for Property Crime Rates without Outliers", 
+  labs(title = "Distribution of Placebo MSPE Ratios", 
        x = "MSPE Ratios", 
        y = "Count") 
 ```
