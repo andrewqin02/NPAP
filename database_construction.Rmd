@@ -33,7 +33,7 @@ crime_13 <- read_csv("fbi/2013_crimes_bycity.csv")
 crime_14 <- read_csv("fbi/2014_crimes_bycity.csv")
 crime_15 <- read_csv("fbi/2015_crimes_bycity.csv")
 crime_16 <- read_csv("fbi/2016_crimes_bycity.csv")
-crime_17 <- read_csv("fbi/2018_crimes_bycity.csv")
+crime_17 <- read_csv("fbi/2017_crimes_bycity.csv")
 crime_18 <- read_csv("fbi/2018_crimes_bycity.csv")
 crime_19 <- read_csv("fbi/2019_crimes_bycity.csv")
 crime_20 <- read_csv("fbi/2020_crimes_bycity.csv")
@@ -1529,14 +1529,14 @@ reduced_database_violent <- reduced_database_violent %>%
 reduced_database_violent <- as.data.frame(reduced_database_violent)
 ```
 
+4, 19, 24
 
+Denver = 24
+Aurora = 4
+Colorado Springs = 19
 
-Denver = 25
-Aurora = 5
-Colorado Springs = 20
-
-exclude 10, 94
-Goes to 96
+exclude 9, 91
+Goes to 93
 
 
 1:102
@@ -1546,16 +1546,15 @@ Goes to 96
 
 ```{r}
 denver_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("population", "pop_density", # Kept population density
-                                    "female_household", 
+                                  c("population", "pop_density", "median_income",
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
+                                                "unemployment", "owner_occupied",
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 25, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
-                                                            95:96), 
+         treatment.identifier = 24, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1590,16 +1589,15 @@ When optimizing for 2017 to 2020, the gaps plot does not reveal a significantly 
 
 ```{r}
 cspd_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("pop_density", "population", #Keep both because allows for longer tracking 
-                                    "female_household", 
+                                  c("population", "pop_density", "owner_occupied",
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
+                                                "unemployment", "median_income", 
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 20, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
-                                                            95:96), 
+         treatment.identifier = 19, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1634,16 +1632,15 @@ The synthetic control graph provides no evidence that from 2020 to 2021, Colorad
 
 ```{r}
 aurora_violent_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("population", "pop_density",
-                                    "female_household", 
+                                  c("population", "pop_density", "owner_occupied",
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
+                                                "unemployment", "median_income",
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 5, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
-                                                            95:96), 
+         treatment.identifier = 4, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1683,15 +1680,15 @@ Xlab = "Year"
 
 ```{r}
 denver_property_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("population", "pop_density", "median_income", 
+                                  c("population", "pop_density", "median_income",
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
+                                                "unemployment", "owner_occupied",
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 25, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
-                                                            95:96), 
+         treatment.identifier = 24, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1704,7 +1701,7 @@ synth_denver_property <- synth(denver_property_prep, optimxmethod = "All")
 ```{r}
 path.plot(synth.res = synth_denver_property,
 dataprep.res = denver_property_prep,
-Ylab = c("Violent Crime Rates"),
+Ylab = c("Property Crime Rates"),
 Xlab = c("Year"),
 Legend = c("Denver, CO","Synthetic Denver")
 )
@@ -1724,15 +1721,15 @@ The synthetic control graph does imply the existence of increases in property cr
 
 ```{r}
 cspd_property_prep <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("population", "pop_density", "median_income", 
+                                  c("population", "pop_density", "median_income",
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
-                                                "child_poverty"), 
+                                                "unemployment", "owner_occupied",
+                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 20, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
-                                                            95:96), 
+         treatment.identifier = 19, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1772,12 +1769,12 @@ aurora_property_prep <- dataprep(foo = reduced_database_violent, predictors =
                                   c("population", "pop_density", "median_income",
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
-                                                "unemployment", 
+                                                "unemployment", "owner_occupied",
                                                 "child_poverty"), 
          predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 5, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:93, 
-                                                            95:96), 
+         treatment.identifier = 4, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1825,20 +1822,24 @@ l <- l[1]
 #### Plot Placebos Property Crimes
 
 ```{r gen-placebos}
-placebos4 <- generate.placebos(denver_violent_prep, synth_denver_violent) ## Placebos
-saveRDS(placebos4, 
-       file = "/Users/andrewqin02/Desktop/R/NPAP/data/placebos4.Rdata")
+placebos7 <- generate.placebos(denver_violent_prep, synth_denver_violent) ## Placebos
+saveRDS(placebos7, 
+       file = "/Users/andrewqin02/Desktop/R/NPAP/data/placebos7.Rdata")
+
+placebos8 <- generate.placebos(denver_property_prep, synth_denver_property)
+saveRDS(placebos8, 
+       file = "/Users/andrewqin02/Desktop/R/NPAP/data/placebos8.Rdata")
 
 ```
 
 ```{r denver-placebo-results}
-test_results <- SCtools::mspe.test(placebos3)$test
-SCtools::mspe.test(placebos3, discard.extreme = TRUE, mspe.limit = 5)$p.val
+test_results <- SCtools::mspe.test(placebos7)$test
+SCtools::mspe.test(placebos7, discard.extreme = TRUE, mspe.limit = 5)$p.val
 ```
 
 ```{r denver-placebo-results}
-test_results2 <- SCtools::mspe.test(placebos4)$test
-SCtools::mspe.test(placebos4, discard.extreme = TRUE, mspe.limit = 5)$p.val
+test_results2 <- SCtools::mspe.test(placebos8)$test
+SCtools::mspe.test(placebos8, discard.extreme = TRUE, mspe.limit = 5)$p.val
 ```
 
 ```{r plot-results}
