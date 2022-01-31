@@ -903,9 +903,11 @@ synthetic <- tibble(combined_analysiswa, combined_analysistx, combined_analysisf
 
 combined_synthetic_property <- full_join(combined_analysis, synthetic)
 ```
+
+
 ## Introduction and Background
 
-Qualified immunity is a court-established doctrine that shields government officials from personal liability for constitutional violations unless the officials violated clearly established laws (https://www.lawfareblog.com/what-qualified-immunity-and-what-does-it-have-do-police-reform). After the killing of George Floyd sparked movements against police violence around the country, many activists directed their attention towards qualified immunity as a subject of reform. Activists argued that qualified immunity prevents police officers from being held accountable for excessive uses of force within civil court. Supporters of qualified immunity argued that efforts to limit qualified immunity would prevent police officers from effectively performing their job out of fear of frivolous lawsuits. In this statistical report, we aim to provide preliminary data-driven insights on the effects of recently passed qualified immunity reform on violent and property crime rates in major urban jurisdictions.
+Qualified immunity is a court-established doctrine that shields government officials from personal liability for constitutional violations unless the officials violated clearly established laws. After the killing of George Floyd sparked movements against police violence around the country, many activists directed their attention towards qualified immunity as a subject of reform. Activists argued that qualified immunity prevents police officers from being held accountable for excessive uses of force within civil court. Supporters of qualified immunity argued that efforts to limit qualified immunity would prevent police officers from effectively performing their job out of fear of frivolous lawsuits. In this statistical report, we aim to provide preliminary data-driven insights on the effects of recently passed qualified immunity reform on violent and property crime rates in major urban jurisdictions.
 
 Four states have passed measures to limit qualified immunity: Colorado, Connecticut, New Mexico, and New York. Of those states, Colorado passed its reform the earliest, with its measure taking effect June 19, 2020. As a result, we decided to analyze Colorado crime data to determine the effects of qualified immunity on crime rates. In particular, our research question was as follows: Was the passage of qualified immunity reform in Colorado in June of 2020 correlated with significantly larger proportional increases in average daily violent and property crime incidents compared to increases in control jurisdictions? Because statewide data for 2020 and 2021 YTD from Colorado was not publicly available, we further narrowed the scope of our analysis to Denver, Colorado Springs, and Aurora, the three largest jurisdictions within Colorado.
 
@@ -914,7 +916,6 @@ Although we attempt to establish some level of causation in this study through t
 ## Overview of Available Data
 
 Many of our Methodology choices can only be understood in the context of the available data and policy context at our disposal. 
-
 We obtained three different types of data from three sources, almost entirely through data released from official sources (with the exception of land area data, which was obtained from a website reporting census data but may have errors). First, we received socioeconomic indicator data from the 2011-2019 American Community Survey estimates as found through the census data website. The predictor data we utilized was organized "by Place," meaning the data was largely aggregated in terms of local unit boundaries (towns, cities, CDPS, etc). This data was collected with the intention of serving as crime predictor data, a use that will be described further in the "Methodology" section. Unfortunately, at the time of the creation of this report, neither 2020 nor 2021 census data had been publicly released. Second, we collected crime rate data by state by city through the UCR Crime in the United States Reports released by the FBI. This data was complete from 2011-2020, and the first 3 quarters of both 2020 and 2021 had been released in the Quarterly UCR Report from roughly 155 large agencies (limited by the number of agencies that reported their crime rates). This data included statistics on jurisdiction population, violent crime numbers, property crime numbers, and numbers for individual crimes (such as forcible rape, nonnegligent homicide/murder, larceny, etc). The quarterly data was unfortunately not disaggregated by quarter, which presented problems later down the line in Methodology A, as the 2020 data incorporated 2 quarters without qualified immunity legislation effect in Denver and 1 quarter after the passage of the qualified immunity legislation. Third, we received incident level crime data by downloading the data from various agency websites and submitting FOIA requests for agencies that had not released their data (such as Champaign Police Department). Several times, these FOIA requests returned data that was unfeasible to use (such as PDF reports of individual crimes), were too costly (totaling greater than $100 for smaller agencies), or were flatly denied on the basis that data was not kept or that state FOIA laws only permitted in-state residents to make FOIA requests (in the case of Clarksville). As a result, the usefulness of FOIA requested data was incredibly limited; however, we incorporated the data that we could obtain using this method into the analysis. The incident-level crime data gave us daily incident crime numbers for various offenses. We categorized incidents into violent and property crimes based on the UCR definitions (Footnote).
 
 In sum, the data that we could obtain was extremely limited in scope, largely due to the combination of limited fiscal/temporal resources, difficulty in obtaining data from police departments, and late releases of census and UCR data. These data limitations then significantly harmed the soundness of the analysis and forced the methodology to deviate significantly from its ideal form. 
@@ -982,13 +983,13 @@ Third, in an ideal synthetic control, we would have a wealth of years both befor
 
 Our second methodology was employed before the release of 2020 and 2021 data by the UCR and was meant to serve as a workaround to normal synthetic analysis. The second methodology was also performed in August of 2021 with only a few updates since then, limiting the scope of the data. As a result, the second methodology suffers from severe limitations, many of which could invalidate the analysis entirely. Regardless, we include the results from Methodology B in the appendices in case they are found to be useful in their treatment date precision and high jurisdiction inclusion that Methodology A lacks.
 
-In our second methodology, we examined violent and property crime rates in two treated jurisdictions: Denver and Colorado Springs. In selecting possible control jurisdictions, we waived the requirements for 2020 and 2021 crime data, as such data was not relevant for the analysis. We additionally only filtered for jurisdictions greater than 50000 in population, as we only had access to a small number of time periods but an enormous sample of jurisdictions within the donor pool. We removed population density from the analysis and relied on population alone to serve as the "population" level statistic. This led to many nonsimilar jurisdictions being included in the analysis, significantly increasing the potential for bias. In total, we had roughly 530 jurisdictions in the donor pool when constructing the synthetic control.
+In our second methodology, we examined violent and property crime rates in Denver only. FOOTNOTE ON COLORADO SPRINGS In selecting possible control jurisdictions, we waived the requirements for 2020 and 2021 crime data, as such data was not relevant for the analysis. We additionally only filtered for jurisdictions greater than 50000 in population, as we only had access to a small number of time periods but an enormous sample of jurisdictions within the donor pool. We removed population density from the analysis and relied on population alone to serve as the "population" level statistic. This led to many nonsimilar jurisdictions being included in the analysis, significantly increasing the potential for bias. In total, we had roughly 530 jurisdictions in the donor pool when constructing the synthetic control.
 
 To account for the lack of 2020 and 2021 date and to increase the precision of the treatment dates, we used the synthetic control methodology to identify similar jurisdictions to Denver or Colorado Springs and to provide weights for some of those jurisdictions. We optimized the synthetic controls for 2016 to 2019 to obtain a synthetic control that could follow the most recent trends in both Denver and colorado Springs. We then identified the top 5 jurisdictions with the highest weights and reran the synthetic control model with only those jurisdictions to recalculate the weights, relying on the premise that the synthetic of the top 4 or 5 jurisdictions that comprise a majority weight in the full synthetic control would be similar enough to the treated jurisdictions to analyze. With those identified control jurisdictions, we submitted requests for incident-level crime data from those departments for 2019-2021. When those requests were either unanswered or denied (as in the case of Ann Arbor Police Department), we removed the city from the synthetic control model and reran the model until we obtained at least three police departments with accessible incident level crime data.
 
 We subdivided all 2019-2021 incident-level crime data into property and violent crimes based on UCR definitions. In particular, murder and nonnegligent homicide, aggravated assault, robbery, and forcible rape (including sexual assault with an object, fondling, and forcible sodomy) were identified as violent crimes. We categorized larceny charges, burglary, damage/destruction of property, arson, shoplifting, pocket-picking, and motor vehicle theft charges as property crimes. We calculated the daily numbers of violent and property offenses for June of 2019 to June of 2020 (before qualified immunity reform) and June of 2020 to June of 2021 (after qualified immunity reform) in control and treated jurisdictions. We then subtracted the daily numbers of violent and property offenses in the 2019-20 time period from the 2020-21 time period and divided by the total number of violent or property offenses in the 2019-20 time period to make the daily numbers of violent and property crimes proportionate to each jurisdiction's respective crime numbers. Finally, we created a bootstrapped null distribution assuming no true difference between the daily increases of the synthetic jurisdiction compared to Denver or Colorado Springs and calculated a p-value based on the probability of observing the real difference or greater between Denver/Colorado Springs and the respective synthetic control difference based on the null distribution.
 
-This methodology had a few critical limitations. First, because of the lack of 2020 and 2021 census data, we could only identify jurisdictions similar to either Denver or Colorado Springs until 2019 which is no guarantee that those similarities in control predictors continued until 2020 and 2021. In addition, since we did not have access to UCR data for 2020 and 2021, we had to use 2011-2019 weights in 2020 and 2021 calculations, which extrapolate beyond the capabilities of the synthetic control. Second, because of the several denied requests (especially from Ann Arbor and Clarksville Police Departments), we were forced to rely partially on convenience sampling in order to successfully carry out the study. Despite this, the plots comparing the synthetic control property/violent crime rates with the Denver property/violent crime rates look strong enough to indicate that the synthetic controls at least partially match the crime trends of the treated jurisdictions even when certain jurisdictions were removed due to lack of data. Third, because we needed to determine if the increases between the 2019-20 time period and 2020-21 time period were significantly greater than increases in control jurisdictions, we were forced to employ a test where we subtracted daily crimes in one time period from daily crimes in another time period. This method may have substantially exaggerated the standard deviation of violent and property crimes, since daily fluctuations in crime do not remain constant over the course of a year. The test may have been more successful on a monthly level, but we did not have enough monthly difference data to successfully arrive at statistical conclusions through simulation. Fourth, because we had to standardize the daily crime numbers by dividing crime numbers from some relative figure for each jurisdiction (in this case, the total number of offenses in the 2019-20 time period), smaller jurisdictions disproportionately influenced the variance of the synthetic control, since daily fluctuations of 1-2 offenses were much greater when standardized compared to larger jurisdictions. 
+This methodology had a few critical limitations. First, because of the lack of 2020 and 2021 census data, we could only identify jurisdictions similar to either Denver or Colorado Springs until 2019 which is no guarantee that those similarities in control predictors continued until 2020 and 2021. In addition, since we did not have access to UCR data for 2020 and 2021, we had to use 2011-2019 weights in 2020 and 2021 calculations, which extrapolate beyond the capabilities of the synthetic control. Second, because of the several denied requests (especially from Ann Arbor and Clarksville Police Departments), we were forced to rely partially on convenience sampling in order to successfully carry out the study. Third, because we needed to determine if the increases between the 2019-20 time period and 2020-21 time period were significantly greater than increases in control jurisdictions, we were forced to employ a test where we subtracted daily crimes in one time period from daily crimes in another time period. This method may have substantially exaggerated the standard deviation of violent and property crimes, since daily fluctuations in crime do not remain constant over the course of a year. The test may have been more successful on a monthly level, but we did not have enough monthly difference data to successfully arrive at statistical conclusions through simulation. Fourth, because we had to standardize the daily crime numbers by dividing crime numbers from some relative figure for each jurisdiction (in this case, the total number of offenses in the 2019-20 time period), smaller jurisdictions disproportionately influenced the variance of the synthetic control, since daily fluctuations of 1-2 offenses were much greater when standardized compared to larger jurisdictions. Fifth, the methodology misuses the synthetic control methodology to identify 4-5 jurisdictions that comprise the majority weight of the main jurisdiction, but the synthetic control methodology is only intended to weight jurisdictions in a manner that creates an average jurisdiction matching the treated one, not to identify jurisdictions that are most similar to the treated jurisdiction. As a result, the jurisdictions we chose based on the synthetic control were often dramatically different from the treated jurisdiction (such as Champaign, IL and Fort Smith, AR, both of which were incredibly small jurisdictions). Finally, because we included both excessively small and excessively large jurisdictions, we did not filter the dataset beforehand to only include jurisdictions that were somewhat similar to Denver, skewing the synthetic averages towards the extremes.
 
 The results of this methodology, in their entirety, will be described in Appendix 2.
 
@@ -1743,12 +1744,272 @@ Regardless, we include the above table to demonstrate that conclusions do not va
 
 ## Appendix 2: Methodology B Results
 
-Methodology B has the advantage of being precise about the treatment dates, allowing us to possibly isolate the qualified immunity bill as a factor, instead of other lurking variables such as COVID-19. However, we do not include the results in our main analysis due to critical methodological limitations that likely invalidate our results.
+Methodology B has the advantage of being precise about the treatment dates, allowing us to possibly isolate the qualified immunity bill as a factor, instead of other lurking variables such as COVID-19. However, we do not include the results in our main analysis due to critical methodological limitations that likely invalidate our results. Before we begin the discussion, please note that methodology B was mostly performed in the early stages of the report and has not been revised since then. Thus, synthetic control results and inclusion of jurisdictions were much different in methodology B compared to A.
 
+### Violent Crime Synthetic Controls
+
+Synthetic controls were different in several key ways: First, we included all jurisdictions above 50000 in population with data from all 9 years (2011-2019). Second, we incorporated single female-led household percentage as a predictor and simply used single female-led household percentage with children for 2019. Third, we did not include population density as a predictor. In total, we had around 500 jurisdictions in our synthetic control. Fourth, due to random errors in the optimization functions of the synthetic controls, we varied the pretreatment time periods to be 2011-2018 and 2011-2019, experimenting with both until one of the functions worked. Such a condition should be largely unimportant, as we do not use the synthetic control to directly match the crime rates, only to determine the series of jurisdictions that, when combined, comprise the majority weight of the synthetic control. Additionally, we optimized over 2014-2019. Below, we display the results for our violent crime synthetic controls.
+
+```{r read-synth-b}
+synth_denver_violent_b <- readRDS("data/denver_violent_synth.Rdata")
+synth_denver_violent_b_limited <- readRDS("data/denver_violent_true.Rdata")
+synth_denver_property_b <- readRDS("data/denver_property_synth.Rdata")
+synth_denver_property_b_limited <- readRDS("data/denver_property_true.Rdata")
+full_database <- read_csv("data/old_database.csv")
+```
+
+```{r full-database-wrangling}
+reduced_database_b <- full_database %>% 
+  select(1:20) %>% 
+  filter(year <= 2019) %>%  # Remove all new data added afterwards to return to original synthetics
+  filter(population >= 50000) %>%  
+  filter(is.na(NAME) == FALSE)
+
+for_removal <- reduced_database_b %>% 
+  filter(NAME == "Burbank, California") %>%  # Remove duplicate names
+  filter(white_percent < 40)
+
+for_removal2 <- reduced_database_b %>% 
+  filter(NAME == "Mesquite, Texas") %>% 
+  filter(white_percent == 0.0)
+for_removal <- full_join(for_removal, for_removal2)
+
+for_removal2 <- reduced_database_b %>% 
+  filter(NAME == "Mountain View, California") %>% 
+  filter(white_percent > 48)
+for_removal <- full_join(for_removal, for_removal2)
+
+for_removal2 <- reduced_database_b %>% 
+  filter(NAME == "Plantation, Florida") %>% 
+  filter(white_percent > 90)
+for_removal <- full_join(for_removal, for_removal2)
+
+reduced_database_b <- anti_join(reduced_database_b, for_removal)
+```
+
+```{r create-reduced-violent-b}
+reduced_database_violent_b <- reduced_database_b %>% 
+  filter(is.na(violent_crime_rate) == FALSE & is.na(female_household) == FALSE &  # only exclude violent crime rate NAs
+         is.na(hs) == FALSE & is.na(res_stability) == FALSE & is.na(over_18) == FALSE &  # no standardized database for both
+         is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE)
+counts <- reduced_database_violent_b %>%  
+  count(NAME, sort = TRUE)
+remove_missing <- counts %>% 
+  filter (n < 9)
+reduced_database_violent_b <- anti_join(reduced_database_violent_b, remove_missing)
+
+# add id numberes
+add_numbers_violent <- reduced_database_violent_b %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" |
+           state != "Colorado") %>% 
+  distinct(NAME) 
+
+add_numbers_violent <- add_numbers_violent %>% 
+  mutate(id = 1:nrow(add_numbers_violent))
+
+reduced_database_violent_b <- full_join(reduced_database_violent_b, add_numbers_violent, by = "NAME")
+
+# remove non-Denver Colorado
+reduced_database_violent_b <- reduced_database_violent_b %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" |
+           state != "Colorado") %>% 
+  mutate(id = as.numeric(id)) 
+reduced_database_violent_b <- reduced_database_violent_b %>% 
+  mutate(year = as.numeric(year)) 
+reduced_database_violent_b <- as.data.frame(reduced_database_violent_b)
+```
+
+
+
+```{r}
+denver_violent_prep_b <- dataprep(foo = reduced_database_violent_b, predictors = 
+                                  c("population", "female_household", "owner_occupied",
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 186, controls.identifier = c(1:184, 187:514), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
+         time.plot = 2011:2019)
+```
+
+```{r}
+path.plot(synth.res = synth_denver_violent_b,
+dataprep.res = denver_violent_prep_b,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+```{r}
+tabs_b <- synth.tab(synth.res = synth_denver_violent_b, 
+                    dataprep.res = denver_violent_prep_b)
+tabs_b$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  slice(1:10) %>% 
+  kable(digits = 3)
+```
+
+The synthetic control fits relatively well for the optimization time period with a pre-treatment MSPE of `r round(synth_denver_violent_b$loss.v, 3)`. Using the given weights, we took the 5 cities with the greatest weights and submitted FOIA requests to obtain access to their incident-level data (if the data was not already public) from 2019-2021. Our request to Ann Arbor was denied, leaving us with a total of 4 jurisdictions to use data for. We reran the synthetic control with just those 4 jurisdictions to determine the weights of the 4 jurisdictions for manual calculation of daily violent crime increases.
+
+```{r}
+denver_violent_prep_b_limited <- dataprep(foo = reduced_database_violent_b, predictors = c("population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 186, controls.identifier = c(14, 266, 466, 496), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
+         time.plot = 2011:2019)
+
+path.plot(synth.res = synth_denver_violent_b_limited,
+dataprep.res =denver_violent_prep_b_limited,
+Ylab = c("Violent Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+```{r}
+tabs_b <- synth.tab(synth.res = synth_denver_violent_b_limited, 
+                    dataprep.res = denver_violent_prep_b_limited)
+tabs_b$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  kable(digits = 3)
+```
+
+The plot demonstrates that the synthetic control of just the 4 jurisdictions match the violent crime trends in Denver relatively well. Once we obtained the weights, we did not need the synthetic control any longer. We used the above calculated weights and extrapolated the weights to 2020-2021 to manually calculate a synthetic control for daily violent crime increases using 2019-2021 incident level data.
+
+### Property Crime Synthetic Controls
+
+We performed the same method for property crime, except we changed the optimization to 2016-2019 to account for errors when we attempted to run 2014-2019 (and also to emphasize the more recent years to minimize MSPE values for the synthetic control). Because we are not calculating MSPE ratios, it is appropriate to decrease the pretreatment range to minimize MSPE values over, as an excessively small pre-treatment MSPE will not have disparate impacts on MSPE ratios as they would in a placebo analysis.
+
+```{r}
+reduced_database_property_b <- reduced_database_b %>% 
+  filter(is.na(property_crime_rate) == FALSE & is.na(female_household) == FALSE &  # only exclude violent crime rate NAs
+         is.na(hs) == FALSE & is.na(res_stability) == FALSE & is.na(over_18) == FALSE &  # no standardized database for both
+         is.na(white_percent) == FALSE & is.na(self_employed) == FALSE & is.na(unemployment) == FALSE & 
+         is.na(median_income) == FALSE & is.na(child_poverty) == FALSE & is.na(owner_occupied) == FALSE)
+counts <- reduced_database_property_b %>%  
+  count(NAME, sort = TRUE)
+remove_missing <- counts %>% 
+  filter (n < 9)
+reduced_database_property_b <- anti_join(reduced_database_property_b, remove_missing)
+
+# add id numbers
+add_numbers_violent <- reduced_database_property_b %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" |
+           state != "Colorado") %>% 
+  distinct(NAME) 
+
+add_numbers_violent <- add_numbers_violent %>% 
+  mutate(id = 1:nrow(add_numbers_violent))
+
+reduced_database_property_b <- full_join(reduced_database_property_b, add_numbers_violent, by = "NAME")
+
+# remove non-Denver Colorado
+reduced_database_property_b <- reduced_database_property_b %>% 
+  filter(NAME == "Denver, Colorado" | NAME == "Colorado Springs, Colorado" |
+           state != "Colorado") %>% 
+  mutate(id = as.numeric(id)) 
+reduced_database_property_b <- reduced_database_property_b %>% 
+  mutate(year = as.numeric(year)) 
+reduced_database_property_b <- as.data.frame(reduced_database_property_b)
+```
+
+```{r}
+denver_property_prep_b <- dataprep(foo = reduced_database_property_b, predictors = 
+                                  c("population", "female_household", "owner_occupied",
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 186, controls.identifier = c(1:184, 187:531), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2016:2019, # Changed optimization to correct for errors
+         time.plot = 2011:2019)
+```
+
+```{r}
+path.plot(synth.res = synth_denver_property_b,
+dataprep.res = denver_property_prep_b,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+```{r}
+tabs_b <- synth.tab(synth.res = synth_denver_property_b, 
+                    dataprep.res = denver_property_prep_b)
+tabs_b$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  slice(1:10) %>% 
+  kable(digits = 3)
+```
+
+As the path plot demonstrates, synthetic Denver does not follow observed Denver's trends very well, particularly before 2017. With a pre-treatment MSPE value of `r round(synth_denver_property_b$loss.v, 3)`, the synthetic control is not a good fit for the data. Nonetheless, we proceeded with the analysis. We once again took the 5 cities with the highest weights and recalculated the synthetic control. We were able to obtain data from all 5 jurisdictions.
+
+```{r}
+denver_property_prep_b_limited <- dataprep(foo = reduced_database_property_b, 
+                                           predictors = c("population", "female_household", 
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "median_income", 
+                                                "child_poverty", "owner_occupied"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 186, controls.identifier = c(14, 266, 449, 466, 512), 
+         time.predictors.prior = 2011:2018, time.optimize.ssr = 2014:2019, 
+         time.plot = 2011:2019)
+
+path.plot(synth.res = synth_denver_property_b_limited,
+dataprep.res = denver_property_prep_b_limited,
+Ylab = c("Property Crime Rates"),
+Xlab = c("Year"),
+Legend = c("Denver, CO","Synthetic Denver")
+)
+```
+
+```{r}
+tabs_b <- synth.tab(synth.res = synth_denver_property_b_limited, 
+                    dataprep.res = denver_property_prep_b_limited)
+tabs_b$tab.w %>% 
+  arrange(desc(w.weights)) %>% 
+  kable(digits = 3)
+```
+
+Because both Fort Smith and Houston had negligible weights, we used the incident level data from Austin, Champaign, and Seattle to run the simulation tests in the later section.
+
+
+### Simulation and Significance Testing
+
+### Statistical Bootstrapping Simulations
+
+After collecting data from each of the 4-5 jurisdictions identified in each test as well as Denver and Colorado Springs, we calculated the daily differences in violent and property crime between the June 19, 2019 to June 18, 2020 time period compared to the June 19, 2020 to June 19, 2021 time period (the first time period also had an extra day from the leap year). In particular, we corresponded the dates so that the number of violent crimes on June 19, 2019 was subtracted from the number of violent crimes on June 19, 2020 and created a dataset of these differences in violent and property crime numbers. These differences were then divided by the total number of violent or property crimes in the first period of time. We divided by the total number of crimes in the previous period as opposed to the population in order to account for jurisdictions which began from already-high crime rates and the proportionately smaller increase in crime rate that the same absolute increase in crime would entail.
+
+To calculate the synthetic control differences for comparison, we used the weights in the previous section and multiplied them by the proportional daily differences in crime between the two periods. We then summed up the the proportional daily differences and joined the two datasets together. We used bootstrapping to create a null distribution of 10000 differences in mean centered at 0 and determined if the probability of observing the difference between the mean proportional average daily increase in Denver or Colorado Springs with the mean proportional average daily increase in the synthetic control or greater was low enough to justify concluding that Denver or Colorado Springs' increase in violent crime was significantly greater than control jurisdictions.
+
+#### Denver Violent Crime Tests
+
+#### Denver Property Crime Tests
+
+### Summary of Results
+
+This methodology concludes similarly to the previous methodology we used. The data does not provide evidence at the 1% or 5% significance levels to indicate that Denver's increase in violent crime after the passage of police accountability legislation significantly exceeded the violent crime increase in control cities. However, the data does suggest that Denver’s increase in property crime did exceed the property crime increase in similar cities without qualified immunity reform. Because of the critical limitations in our data and Methodology, these results do not meet the standard of statistical rigor needed to present this as definitive evidence that property crime rates truly did increase in Denver beyond what was expected. For instance, substantial problems existed in the way that we simulated to obtain results. By using daily differences between 2 different time periods, the standard deviation of such differences were exaggerated, as crimes can randomly increase or decrease day by day without reference to broader legislation. If there happened to be 20 violent crime incidents on June 19, 2020 and 0 violent crime incidents on June 19, 2019, the methodology would flag that day as a highly significant violent crime increase, even though the two days are not interconnected in any way. Additionally, our method of standardization gave smaller jurisdictions disproportionately more weight, as tiny variations in violent crime incidents were far more significant there. The graph below displays this phenomenon visually.
+
+Nonetheless, we include the methodology here to demonstrate possible conclusions of an analysis that accurately referenced the treatment date and to provide additional corroboration of the main findings of our report.
 
 ## Appendix 3: Investigating Outliers
 
-As noted in the "Results" section, 
+As noted in the "Results" section, the placebo synthetic controls for violent crime were significantly skewed by a series of high-MSPE ratio outliers, including 2 extreme outliers with MSPE ratios greater than 80. We investigate these outliers now.
 
 #### Manchester, NH
 
@@ -1758,11 +2019,11 @@ test_prep <- dataprep(foo = reduced_database_violent, predictors =
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "owner_occupied",
-                                                "female_household", "child_poverty"), 
+                                                "child_poverty"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 58, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:57, 59:93, 
-                                                            95:96), 
+         treatment.identifier = 56, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:55, 57:90, 
+                                                            92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1778,10 +2039,11 @@ path.plot(synth.res = synth_test,
 dataprep.res = test_prep,
 Ylab = c("Violent Crime Rates"),
 Xlab = c("Year"),
-Legend = c("Madison, WI","Synthetic Madison")
+Legend = c("Manchester, NH","Synthetic Manchester")
 )
 ```
 
+Manchester, NH had an MSPE ratio of over 200, more than 40x greater than the mean MSPE ratio without Manchester or Evansville. The path plot provides some insight into the mathematical reasons behind this occurrence. The synthetic control tracks the violent crime trends in Manchester exceptionally well until 2019; in 2020, the synthetic control experiences an increase in violent crime that is not matched by Manchester itself. Additionally, Manchester's violent crime rate in the first 3 quarters of 2021 are far lower than expected by the synthetic control. Although this is an outlier, further investigation does not reveal any clear data errors or differing circumstances that would warrant removing the Manchester data from the dataset. 
 
 #### Evansville, Indiana
 
@@ -1791,11 +2053,11 @@ test_prep2 <- dataprep(foo = reduced_database_violent, predictors =
                                                 "hs", "res_stability", "over_18", 
                                                 "white_percent", "self_employed", 
                                                 "unemployment", "owner_occupied",
-                                                "female_household", "child_poverty"), 
+                                                "child_poverty"), 
          predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
          "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 31, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:30, 32:93, 
-                                                            95:96), 
+         treatment.identifier = 30, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:29, 
+                                                            31:55, 57:90, 92:93), 
          time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
          time.plot = 2011:2021)
          
@@ -1815,35 +2077,13 @@ Legend = c("Evansville, IL","Synthetic Evansville")
 )
 ```
 
+Similarly, in Evansville, the synthetic control tracks the violent crime trends well until the treatment period begins, where Evansville experiences a sharp increase in violent crimes that is not followed by the synthetic control. Based on these graphs, we can make 2 plausible conclusion:
+
+First, the synthetic control method appears to have trouble tracking abrupt shifts in violent crime rates, which may be attributable to the randomness by which violent crime rates increase or decrease. In Aurora's violent crime synthetic control, Aurora's abrupt increase in violent crime rates in 2016 was not well-tracked either, implying that although the synthetic control is effective at following trends over time, outlier years cannot be accurately followed with the predictors that we have. Similarly, in Evansville and Manchester, sharp increases and decreases in violent crime rates even without treatment could not be successfully tracked by the synthetic control.
+
+Second, it is plausible that, even without treatment, large increases in violent crime rates could happen that simply happen to fall on the post-treatment years. This highlights the difficulty of making a causal claim; because there are many lurking variables, and violent crime rates are often very random phenomena, we cannot attribute large increases in crime rates purely to treatments. We can, however, use significance testing to diminish the likelihood that the years are explainable purely by chance, as we do in the analysis.
+
+Whether these conclusions apply to property crime analysis is less certain, as the property crime placebos did not have many significant outliers. 
 
 
-```{r}
-test_prep3 <- dataprep(foo = reduced_database_violent, predictors = 
-                                  c("population", "pop_density", "median_income",
-                                                "hs", "res_stability", "over_18", 
-                                                "white_percent", "self_employed", 
-                                                "unemployment", "owner_occupied",
-                                                "female_household", "child_poverty"), 
-         predictors.op = "mean", dependent = "violent_crime_rate", unit.variable = 
-         "id", time.variable = "year", unit.names.variable = "NAME", 
-         treatment.identifier = 58, controls.identifier = c(1:4, 6:9, 11:19, 21:24, 26:57, 59:93, 
-                                                            95:96), 
-         time.predictors.prior = 2011:2020, time.optimize.ssr = 2012:2019, 
-         time.plot = 2011:2021)
-         
-```
-
-```{r}
-synth_test <- synth(test_prep, optimxmethod = "All")
-
-```
-
-```{r}
-path.plot(synth.res = synth_test,
-dataprep.res = test_prep,
-Ylab = c("Violent Crime Rates"),
-Xlab = c("Year"),
-Legend = c("Madison, WI","Synthetic Madison")
-)
-```
-
+Second, the synthetic contorl method 
