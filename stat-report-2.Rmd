@@ -995,6 +995,7 @@ The results of this methodology, in their entirety, will be described in Appendi
 
 ## Exploratory Data Analysis
 
+### Outcome Variable Comparisons
 
 ```{r fig.height = 4, fig.width = 5}
 
@@ -1069,6 +1070,69 @@ ggplot(cspd_monthly_property, aes(x = my, y = n, fill = time_period)) +
   theme(text = element_text(size = 9))
 ```
 
+### Relationships between Predictors and Response Variables
+
+In a synthetic control methodology, predictors shouuld generally be chosen if they possess a moderate linear relationship with the response variables. Based on past theoretical literature, we included all the predictors that we chose, but we include the following graphs to illustrate plausible predictor-response relationships and limitations in terms of the relationships between the predictors and response. This may partially explain why some of the synthetic controls did not fit as effectively as we wished.
+
+#### Clear Relationships
+
+A significant portion of our predictors exhibited realtively clear relationships with response values that may not have been fully linear. In particular, child poverty and median income were incredibly strong predictors for both violent and property crime rates. Below, we included graphs demonstrating those relationships.
+
+```{r}
+ggplot(reduced_database_violent, aes(x = child_poverty, y = violent_crime_rate)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(title = "Violent Crime Rate vs. Child Poverty", 
+       x = "Child Poverty Rates",
+       y = "Violent Crime Rates")
+```
+
+
+```{r}
+ggplot(reduced_database_violent, aes(x = child_poverty, y = property_crime_rate)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(title = "Property Crime Rate vs. Child Poverty", 
+       x = "Child Poverty Rates",
+       y = "Property Crime Rates")
+```
+
+Both the graphs demonstrate a relatively clear positive relationship between crime rates and child poverty. Notably, the violent crime rate graph looks possibly exponential, with low-child poverty jurisdictions generally concentrated at lower violent crime rates and crime rates accelerating as the child poverty increases. Nonetheless, these graphs are strong representations of what 
+
+Linear Relationships
+
+Self-employed
+
+
+Exponential RElationships:
+
+Mixed or Quadratic relationshipis:
+Population Density
+Population (both have major outliers)
+owner-occupied housing
+HS (could be because of the low-x outliers - most high HS education places did not have high violent crime rates)
+res_stability 
+
+ovber_18
+
+
+```{r}
+ggplot(reduced_database_violent, aes(x = unemployment, y =property_crime_rate)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(title = "Violent Crime Rate vs. Child Poverty", 
+       x = "Child Poverty Rates",
+       y = "Violent Crime Rates")
+```
+
+```{r}
+ggplot(reduced_database_violent, aes(x = , y = property_crime_rate)) + 
+  geom_point() + 
+  geom_smooth(se = FALSE) + 
+  labs(title = "Violent Crime Rate vs. Median Income", 
+       x = "Child Poverty Rates",
+       y = "Violent Crime Rates")
+```
 
 ## Testing and Results
 
