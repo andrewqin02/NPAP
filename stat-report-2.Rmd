@@ -67,6 +67,9 @@ synth_aurora_property <- readRDS("data/synth_aurora_property.Rdata")
 
 placebos7 <- readRDS("data/placebos7.Rdata") # Violent crime version
 placebos8 <- readRDS("data/placebos8.Rdata") # Property crime version
+placebos9 <- readRDS("data/placebos9.Rdata") # Violent crime version time analysis
+placebos10 <- readRDS("data/placebos10.Rdata") # Property crime version time analysis
+
 
 test_results <- mspe.test(placebos7)$test
 test_results2 <- mspe.test(placebos8)$test # set up property crime one here as well
@@ -1728,6 +1731,130 @@ Unlike the violent crime MSPE ratios, we did not have any extremely noticeable o
 
 As we can see on the histogram, both Denver and Aurora's MSPE ratios are extreme compared to the placebo synthetic controls, implying that the property crime increases in both jurisdictions likely did not result purely from chance. On the other hand, Colorado Springs' MSPE ratio is not extreme, existing roughly at the center of the distribution. The implications of this on the hypothesis that qualified immunity reform substantially increased property crime rates are mixed at best.
 
+#### Sensitivity Testing: Displacing by Time
+
+Another method to determine the significance of our results and the robustness of the model employed is to change the time of treatment. If changing the inputted treatment time also results in significant results when placebo testing, such a result may indicate that widely variable property crime rates in the treated jurisdictions from control models is nothing unusual. To test the robustness of our model, we tested the model by moving the treatment date to 2017. The post-treatment period was then designated as 2017-2019, and the pretreatment period was designated as 2011-2016. We generated 89 placebos and 3 treatment synthetic controls and calculated MSPE ratios to determine extremity for all 3 jurisdictions.
+
+```{r}
+denver_property_prep2 <- dataprep(foo = reduced_database_violent2, predictors = 
+                                  c("population", "pop_density", "median_income",
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "owner_occupied",
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 24, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
+         time.predictors.prior = 2011:2017, time.optimize.ssr = 2011:2016, 
+         time.plot = 2011:2019)
+
+cspd_property_prep2 <- dataprep(foo = reduced_database_violent2, predictors = 
+                                  c("population", "pop_density", "median_income",
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "owner_occupied",
+                                                 "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 19, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
+         time.predictors.prior = 2011:2017, time.optimize.ssr = 2011:2016, 
+         time.plot = 2011:2019)
+
+aurora_property_prep2 <- dataprep(foo = reduced_database_violent2, predictors = 
+                                  c("population", "pop_density", "median_income",
+                                                "hs", "res_stability", "over_18", 
+                                                "white_percent", "self_employed", 
+                                                "unemployment", "owner_occupied",
+                                                "child_poverty"), 
+         predictors.op = "mean", dependent = "property_crime_rate", unit.variable = 
+         "id", time.variable = "year", unit.names.variable = "NAME", 
+         treatment.identifier = 4, controls.identifier = c(1:3, 5:8, 10:18, 20:23, 25:90, 
+                                                            92:93), 
+         time.predictors.prior = 2011:2017, time.optimize.ssr = 2011:2016, 
+         time.plot = 2011:2019)
+
+test_results3 <- mspe.test(placebos10)$test
+test_results_denver_lim <- mspe.test(placebos10, discard.extreme = TRUE,
+                                     mspe.limit = 5)$test
+mspe7 <- test_results3 %>% 
+  filter(unit == "Denver, Colorado") %>% 
+  pull(MSPE.ratios)
+
+test_results_denver_lim <- test_results_denver_lim %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_denver_lim)[1] <- "ratios"
+n <- test_results_denver_lim %>% 
+  filter(ratios >= mspe7) %>% 
+  nrow()
+p7 <- n / nrow(test_results_denver_lim)  # Find p-value again
+p7
+
+
+```
+```{r cspd-time-placebo-values}
+est <- cspd_property_prep2$Y0plot %*% synth_cspd_property2$solution.w
+est <- est[c(7:9)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Colorado Springs, Colorado" & year >= 2017 & year <= 2019) %>% 
+  select(property_crime_rate) %>% 
+  pull()
+
+mspe8 <- cvTools::mspe(est, real) / synth_cspd_property2$loss.v
+mspe8 <- mspe8[1]
+l <- synth_cspd_property2$loss.v
+l <- l[1]
+extremes <- which(placebos10$mspe.placs >= 5 * l) # l = CS loss.v value 
+unit.names <- placebos10$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_aurora_lim <- test_results3 %>%  # 34 observations
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_aurora_lim)[1] <- "ratios"
+n <- test_results_aurora_lim %>% 
+  filter(ratios >= mspe8) %>% 
+  nrow()
+p8 <- n / nrow(test_results_aurora_lim)  # Find p-value again
+p8
+
+```
+```{r aurora-time-placebo-values}
+est <- aurora_property_prep2$Y0plot %*% synth_aurora_property2$solution.w
+est <- est[c(7:9)]
+real <- reduced_database_violent %>% 
+  filter(NAME == "Aurora, Colorado" & year >= 2017 & year <= 2019) %>% 
+  select(property_crime_rate) %>% 
+  pull()
+
+mspe9 <- cvTools::mspe(est, real) / synth_aurora_property2$loss.v
+mspe9 <- mspe9[1]
+l <- synth_aurora_property2$loss.v
+l <- l[1]
+extremes <- which(placebos10$mspe.placs >= 5 * l) # l = Aurora loss.v value 
+unit.names <- placebos10$names.and.numbers$unit.names[extremes]
+unit_names <- tibble(unit = unit.names) # Find unit names for those that qualify as extremes
+
+test_results_aurora_lim <- test_results3 %>% 
+  anti_join(unit_names) %>% 
+  filter(unit != "Denver, Colorado")
+
+names(test_results_aurora_lim)[1] <- "ratios" # 69 observations
+n <- test_results_aurora_lim %>% 
+  filter(ratios >= mspe9) %>% 
+  nrow()
+p9 <- n / nrow(test_results_aurora_lim)  # Find p-value again
+p9
+```
+
+
+
+
+
+
 #### Overall Property Crime Results
 
 After constructing 89 different placebos and 3 synthetic controls for each of the treated jurisdictions, we found that Denver and Aurora both experienced property crime increases significantly greater than those of similar jurisdictions and that such increases likely did not result purely from chance (given that few placebos, outside of the one outlier, experienced similar increases). Such a finding will be discussed in further detail in the Discussion section. We additionally found that Colorado Springs' MSPE ratio was not extreme. Each of the synthetic controls fit their jurisdictions at least moderately well, with significant variation in how well the controls performed. Colorado Springs possessed the strongest synthetic control by far, while both Denver and Aurora's synthetic controls suffered from nonparallel trends. This may indicate that Colorado Springs' data provided the most reliable conclusions, a subject that will be expounded upon in further detail in the "Discussion" section.
@@ -1745,6 +1872,10 @@ rownames(tab) <- c("Denver", "Colorado Springs", "Aurora", "Denver",
                    "Colorado Springs", "Aurora")
 kable(tab, digits = 4)
 ```
+
+## Sensitivity Testing by Time
+
+
 
 ## Discussion
 
@@ -2151,3 +2282,5 @@ Whether these conclusions apply to property crime analysis is less certain, as t
 
 
 Second, the synthetic contorl method 
+
+## Appendix 3: Sensitivity Testing Using time Placebos
