@@ -64,6 +64,10 @@ synth_aurora_violent <- readRDS("data/synth_aurora_violent.Rdata")
 synth_denver_property <- readRDS("data/synth_denver_property.Rdata")
 synth_cspd_property <- readRDS("data/synth_cspd_property.Rdata")
 synth_aurora_property <- readRDS("data/synth_aurora_property.Rdata")
+synth_denver_property2 <- readRDS("data/synth_denver_property2.Rdata") # Placebo by time
+synth_cspd_property2 <- readRDS("data/synth_cspd_property2.Rdata") # Placebos by time
+synth_aurora_property2 <- readRDS("data/synth_aurora_property2.Rdata") # Placebo by time
+
 
 placebos7 <- readRDS("data/placebos7.Rdata") # Violent crime version
 placebos8 <- readRDS("data/placebos8.Rdata") # Property crime version
@@ -73,6 +77,8 @@ placebos10 <- readRDS("data/placebos10.Rdata") # Property crime version time ana
 
 test_results <- mspe.test(placebos7)$test
 test_results2 <- mspe.test(placebos8)$test # set up property crime one here as well
+
+
 ```
 
 
@@ -1073,70 +1079,6 @@ ggplot(cspd_monthly_property, aes(x = my, y = n, fill = time_period)) +
   theme(text = element_text(size = 9))
 ```
 
-### Relationships between Predictors and Response Variables
-
-In a synthetic control methodology, predictors shouuld generally be chosen if they possess a moderate linear relationship with the response variables. Based on past theoretical literature, we included all the predictors that we chose, but we include the following graphs to illustrate plausible predictor-response relationships and limitations in terms of the relationships between the predictors and response. This may partially explain why some of the synthetic controls did not fit as effectively as we wished.
-
-#### Clear Relationships
-
-A significant portion of our predictors exhibited realtively clear relationships with response values that may not have been fully linear. In particular, child poverty and median income were incredibly strong predictors for both violent and property crime rates. Below, we included graphs demonstrating those relationships.
-
-```{r}
-ggplot(reduced_database_violent, aes(x = child_poverty, y = violent_crime_rate)) + 
-  geom_point() + 
-  geom_smooth(se = FALSE) + 
-  labs(title = "Violent Crime Rate vs. Child Poverty", 
-       x = "Child Poverty Rates",
-       y = "Violent Crime Rates")
-```
-
-
-```{r}
-ggplot(reduced_database_violent, aes(x = child_poverty, y = property_crime_rate)) + 
-  geom_point() + 
-  geom_smooth(se = FALSE) + 
-  labs(title = "Property Crime Rate vs. Child Poverty", 
-       x = "Child Poverty Rates",
-       y = "Property Crime Rates")
-```
-
-Both the graphs demonstrate a relatively clear positive relationship between crime rates and child poverty. Notably, the violent crime rate graph looks possibly exponential, with low-child poverty jurisdictions generally concentrated at lower violent crime rates and crime rates accelerating as the child poverty increases. Nonetheless, these graphs are strong representations of what 
-
-Linear Relationships
-
-Self-employed
-
-
-Exponential RElationships:
-
-Mixed or Quadratic relationshipis:
-Population Density
-Population (both have major outliers)
-owner-occupied housing
-HS (could be because of the low-x outliers - most high HS education places did not have high violent crime rates)
-res_stability 
-
-ovber_18
-
-
-```{r}
-ggplot(reduced_database_violent, aes(x = unemployment, y =property_crime_rate)) + 
-  geom_point() + 
-  geom_smooth(se = FALSE) + 
-  labs(title = "Violent Crime Rate vs. Child Poverty", 
-       x = "Child Poverty Rates",
-       y = "Violent Crime Rates")
-```
-
-```{r}
-ggplot(reduced_database_violent, aes(x = , y = property_crime_rate)) + 
-  geom_point() + 
-  geom_smooth(se = FALSE) + 
-  labs(title = "Violent Crime Rate vs. Median Income", 
-       x = "Child Poverty Rates",
-       y = "Violent Crime Rates")
-```
-
 ## Testing and Results
 
 In this section, we will discuss the synthetic control diagnostics and MSPE test results for each of the 6 synthetic controls. Note that both population and population density were included as predictors, as both of them were found to be important by model selection.
@@ -1733,9 +1675,12 @@ As we can see on the histogram, both Denver and Aurora's MSPE ratios are extreme
 
 #### Sensitivity Testing: Displacing by Time
 
-Another method to determine the significance of our results and the robustness of the model employed is to change the time of treatment. If changing the inputted treatment time also results in significant results when placebo testing, such a result may indicate that widely variable property crime rates in the treated jurisdictions from control models is nothing unusual. To test the robustness of our model, we tested the model by moving the treatment date to 2017. The post-treatment period was then designated as 2017-2019, and the pretreatment period was designated as 2011-2016. We generated 89 placebos and 3 treatment synthetic controls and calculated MSPE ratios to determine extremity for all 3 jurisdictions.
+Another method to determine the significance of our results and the robustness of the model employed is to change the time of treatment. If changing the inputted treatment time also results in significant results when placebo testing, such a result may indicate that widely variable property crime rates in the treated jurisdictions from control models is nothing unusual. To test the robustness of our model, we tested the model by moving the treatment date to 2017. The post-treatment period was then designated as 2017-2019, and the pretreatment period was designated as 2011-2016. We generated 89 placebos and 3 treatment synthetic controls and calculated MSPE ratios to determine extremity for all 3 jurisdictions. If the model is robust at predicting that an unusual 2020 systematic causal factor is at play in Colorado, we would expect generally nonsignificant results in all 3 jurisdictions.
 
 ```{r}
+reduced_database_violent2 <- reduced_database_violent %>% 
+  filter(year <= 2019)
+
 denver_property_prep2 <- dataprep(foo = reduced_database_violent2, predictors = 
                                   c("population", "pop_density", "median_income",
                                                 "hs", "res_stability", "over_18", 
@@ -1851,9 +1796,46 @@ p9
 ```
 
 
+We visualized the placebo distributions below.
 
 
+```{r summary-stats-placebos-10}
+test_results3 %>% 
+  summarise(mean = mean(MSPE.ratios), 
+            sd = sd(MSPE.ratios), 
+            median = median(MSPE.ratios)) %>% 
+  kable(digits = 3)
+```
 
+```{r histogram-placebos-10}
+test_results3 %>% 
+  filter(unit != "Denver, Colorado") %>% 
+ggplot(aes(x = MSPE.ratios)) + 
+  geom_histogram(color = "black", binwidth = 1) +
+  geom_vline(xintercept = mspe9, color = "red") + 
+  geom_vline(xintercept = mspe8, color = "steelblue") +
+  geom_vline(xintercept = mspe7) + 
+  labs(title = "Distribution of Placebo MSPE Ratios", 
+       x = "MSPE Ratios", 
+       y = "Count") 
+```
+
+As the histogram demonstrates, the distribution of placebos is affected by a series of outliers above MSPE ratios of 20. This likely results from the fact that we have fewer pretreatment units which skews the pre-treatment MSPE towards lower numbers, creating the possibility for inflated MSPE ratios. This partially explains why Colorado Springs' MSPE ratio appears somewhat extreme; Colorado Springs had an exceptionally strong fit pretreatment before experiencing some deviation in both directions after the placebo treatment time of 2017.
+
+```{r summary-table-by-time}
+tab2 <- matrix(c(synth_denver_property$loss.v,
+                synth_cspd_property$loss.v, synth_aurora_property$loss.v,
+                synth_denver_property2$loss.v,
+                synth_cspd_property2$loss.v, synth_aurora_property2$loss.v,
+                mspe4, mspe5, mspe6, mspe7, mspe8, mspe9, p4, 
+                p5, p6, p7, p8, p9), ncol = 3, byrow = FALSE)
+colnames(tab2) <- c(" Pre-Treatment MSPE", "MSPE Ratio", "P-value")
+rownames(tab2) <- c("Denver", "Colorado Springs", "Aurora", "Denver", 
+                   "Colorado Springs", "Aurora")
+kable(tab2, digits = 4)
+```
+
+The model stands up to the robustness check. The p-values are all nonsignificant, indicating that the MSPE ratios generated by a placebo treatment year are not extreme. 
 
 #### Overall Property Crime Results
 
@@ -2224,12 +2206,12 @@ test_prep <- dataprep(foo = reduced_database_violent, predictors =
          
 ```
 
-```{r}
+```{r eval = FALSE}
 synth_test <- synth(test_prep, optimxmethod = "All")
 
 ```
 
-```{r}
+```{r eval = FALSE}
 path.plot(synth.res = synth_test,
 dataprep.res = test_prep,
 Ylab = c("Violent Crime Rates"),
@@ -2258,12 +2240,12 @@ test_prep2 <- dataprep(foo = reduced_database_violent, predictors =
          
 ```
 
-```{r}
+```{r eval = FALSE}
 synth_test2 <- synth(test_prep2, optimxmethod = "All")
 
 ```
 
-```{r}
+```{r eval = FALSE}
 path.plot(synth.res = synth_test2,
 dataprep.res = test_prep2,
 Ylab = c("Violent Crime Rates"),
